@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TruthLens AI - See what changed. Know what's real.</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6C3BFF',
+                        secondary: '#E83E8C',
+                        deep: '#27154D',
+                        lavender: '#F1ECFF',
+                        darkbg: '#0A0614',
+                        darkcard: '#150E26',
+                    },
+                    fontFamily: {
+                        poppins: ['Poppins', 'sans-serif'],
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-poppins { font-family: 'Poppins', sans-serif; }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #6C3BFF 0%, #E83E8C 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #6C3BFF 0%, #E83E8C 100%);
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .dark .glass {
+            background: rgba(21, 14, 38, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .scanning-line { animation: scan 2s ease-in-out infinite; }
+        
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(108, 59, 255, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(108, 59, 255, 0); }
+        }
+        .pulse-glow { animation: pulse-glow 2s infinite; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #6C3BFF; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-white dark:bg-darkbg text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, createContext, useContext } = React;
+
+        // --- CONTEXT & STATE ---
+        const AppContext = createContext();
+
+        const AppProvider = ({ children }) => {
+            const [currentPage, setCurrentPage] = useState('landing');
+            const [theme, setTheme] = useState('light');
+            const [isLensOpen, setIsLensOpen] = useState(false);
+            const [isLensExpanded, setIsLensExpanded] = useState(false);
+            const [investigationData, setInvestigationData] = useState(null);
+            const [chatHistory, setChatHistory] = useState([]);
+
+            useEffect(() => {
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }, [theme]);
+
+            const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
+
+            return (
+                <AppContext.Provider value={{
+                    currentPage, setCurrentPage,
+                    theme, toggleTheme,
+                    isLensOpen, setIsLensOpen,
+                    isLensExpanded, setIsLensExpanded,
+                    investigationData, setInvestigationData,
+                    chatHistory, setChatHistory
+                }}>
+                    {children}
+                </AppContext.Provider>
+            );
+        };
+
+        // --- ICONS HELPER ---
+        const Icon = ({ name, size = 20, className = "" }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} width={size} height={size} className={className}></i>;
+        };
+
+        // --- UI COMPONENTS ---
+        const Button = ({ children, variant = 'primary', size = 'md', className = '', onClick, icon }) => {
+            const base = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50";
+            const variants = {
+                primary: "gradient-bg text-white hover:opacity-90 shadow-lg shadow-primary/20",
+                outline: "border border-gray-200 dark:border-gray-700 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800",
+                ghost: "bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800",
+                secondary: "bg-lavender dark:bg-darkcard text-primary hover:bg-primary/10"
+            };
+            const sizes = { sm: "h-8 px-3 text-sm", md: "h-10 px-5 text-sm", lg: "h-12 px-8 text-base" };
+            return (
+                <button onClick={onClick} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}>
+                    {icon && <Icon name={icon} size={16} className="mr-2" />}
+                    {children}
+                </button>
+            );
+        };
+
+        const Card = ({ children, className = '', onClick }) => (
+            <div onClick={onClick} className={`bg-white dark:bg-darkcard rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''} ${className}`}>
+                {children}
+            </div>
+        );
+
+        const Badge = ({ children, color = 'primary' }) => {
+            const colors = {
+                primary: "bg-primary/10 text-primary",
+                secondary: "bg-secondary/10 text-secondary",
+                success: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                warning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+            };
+            return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>{children}</span>;
+        };
+
+        // --- LOGO ---
+        const Logo = ({ size = 'md', showText = true }) => {
+            const s = { sm: 24, md: 32, lg: 48 }[size];
+            return (
+                <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.location.hash = '#landing'}>
+                    <svg width={s} height={s} viewBox="0 0 48 48" fill="none">
+                        <path d="M24 8C14 8 6 16 6 24C6 32 14 40 24 40C34 40 42 32 42 24C42 16 34 8 24 8Z" stroke="#6C3BFF" strokeWidth="3" fill="url(#grad)" fillOpacity="0.1"/>
+                        <circle cx="24" cy="24" r="10" stroke="#6C3BFF" strokeWidth="2.5" fill="url(#grad)"/>
+                        <circle cx="24" cy="24" r="5" fill="#27154D"/>
+                        <circle cx="26" cy="22" r="2" fill="white" fillOpacity="0.8"/>
+                        <path d="M38 12L40 10L42 12L40 14L38 12Z" fill="#E83E8C">
+                            <animateTransform attributeName="transform" type="rotate" from="0 40 12" to="360 40 12" dur="3s" repeatCount="indefinite"/>
+                        </path>
+                        <defs><linearGradient id="grad" x1="6" y1="8" x2="42" y2="40"><stop stopColor="#6C3BFF"/><stop offset="1" stopColor="#E83E8C"/></linearGradient></defs>
+                    </svg>
+                    {showText && (
+                        <div className="flex flex-col">
+                            <span className={`font-poppins font-bold ${size === 'lg' ? 'text-2xl' : 'text-lg'} leading-none`}>
+                                TruthLens <span className="gradient-text">AI</span>
+                            </span>
+                            {size === 'lg' && <span className="text-xs text-gray-500 font-inter mt-1">See what changed. Know what's real.</span>}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- NAVBAR ---
+        const Navbar = () => {
+            const { currentPage, setCurrentPage, theme, toggleTheme, setIsLensOpen } = useContext(AppContext);
+            const [mobileOpen, setMobileOpen] = useState(false);
+            const links = [
+                { id: 'landing', label: 'Home' },
+                { id: 'dashboard', label: 'Dashboard' },
+                { id: 'compare', label: 'Compare' },
+                { id: 'detect', label: 'AI Detection' },
+                { id: 'history', label: 'History' }
+            ];
+
+            return (
+                <nav className="sticky top-0 z-40 w-full glass border-b border-gray-200 dark:border-gray-800">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-16">
+                            <div onClick={() => setCurrentPage('landing')}><Logo size="md" /></div>
+                            
+                            <div className="hidden md:flex items-center space-x-1">
+                                {links.map(l => (
+                                    <button key={l.id} onClick={() => setCurrentPage(l.id)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === l.id ? 'bg-primary/10 text-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+                                        {l.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="hidden md:flex items-center gap-3">
+                                <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                                    <Icon name={theme === 'light' ? 'moon' : 'sun'} size={20} />
+                                </button>
+                                <button onClick={() => setIsLensOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 relative">
+                                    <Icon name="message-square" size={20} />
+                                    <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full"></span>
+                                </button>
+                                <Button onClick={() => setCurrentPage('compare')} icon="search">Start Investigation</Button>
+                            </div>
+
+                            <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2">
+                                <Icon name={mobileOpen ? 'x' : 'menu'} size={24} />
+                            </button>
+                        </div>
+                    </div>
+                    {mobileOpen && (
+                        <div className="md:hidden border-t border-gray-200 dark:border-gray-800 p-4 space-y-2 bg-white dark:bg-darkbg">
+                            {links.map(l => (
+                                <button key={l.id} onClick={() => { setCurrentPage(l.id); setMobileOpen(false); }}
+                                    className="block w-full text-left px-4 py-3 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800">
+                                    {l.label}
+                                </button>
+                            ))}
+                            <Button className="w-full mt-4" onClick={() => { setCurrentPage('compare'); setMobileOpen(false); }}>Start Investigation</Button>
+                        </div>
+                    )}
+                </nav>
+            );
+        };
+
+        // --- LENS CHATBOT ---
+        const LensChat = () => {
+            const { isLensOpen, setIsLensOpen, isLensExpanded, setIsLensExpanded, currentPage, investigationData } = useContext(AppContext);
+            const [messages, setMessages] = useState([
+                { id: 1, role: 'assistant', content: "Hi, I'm Lens — your visual investigation copilot. I can help you compare images, understand AI-detection results, and investigate suspicious regions. What would you like to investigate?", mode: 'explain' }
+            ]);
+            const [input, setInput] = useState('');
+            const [mode, setMode] = useState('explain');
+            const [isTyping, setIsTyping] = useState(false);
+            const chatEndRef = useRef(null);
+
+            useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
+
+            const getLensResponse = (msg) => {
+                const lower = msg.toLowerCase();
+                if (lower.includes('what changed') || lower.includes('difference')) return "I found 7 notable visual differences:\n\n1. **Background** - Structure changed significantly\n2. **Object Position** - Main object repositioned\n3. **Color** - Temperature increased by 15%\n4. **Lighting** - Shadow patterns inconsistent\n5. **Texture** - Quality differs in key areas\n6. **Edges** - Sharpness varies\n7. **Contrast** - Overall contrast increased\n\nThe background shows the strongest change.";
+                if (lower.includes('ai probability') || lower.includes('score')) return "The model estimates an **87% probability** of AI generation.\n\nBased on:\n• Texture Analysis (84%)\n• Lighting Analysis (91%)\n• Edge Behavior (79%)\n• Noise Pattern (76%)\n\n*Note: This is an analytical estimate, not absolute proof.*";
+                if (lower.includes('suspicious') || lower.includes('investigate')) return "Three areas deserve inspection:\n\n1. **Background** - Inconsistent texture\n2. **Face Area** - Unusual edge behavior\n3. **Shadow Region** - Lighting inconsistency\n\nWould you like me to highlight these?";
+                if (lower.includes('report') || lower.includes('summarize')) return "**Investigation Summary**\n\nAuthenticity: 72/100\nAI Probability: 87%\nDifferences: 7\n\n**Key Evidence:** Texture inconsistency, lighting variation, edge artifacts.\n\n**Assessment:** Image may have undergone AI generation. Further verification recommended.";
+                if (lower.includes('challenge')) return "**Counter-Evidence Scan Complete**\n\nSupporting AI generation: 3\nContradicting AI generation: 2\nUncertain: 1\n\n**Revised Probability:** 78% (Medium Confidence)\n\nThe second analysis found natural lighting relationships that weaken the original assessment.";
+                return "I can help analyze visual differences, explain AI detection results, or generate reports. Try asking: 'What changed?', 'Explain the AI score', or 'Challenge this result'.";
+            };
+
+            const handleSend = (text) => {
+                if (!text.trim()) return;
+                const userMsg = { id: Date.now(), role: 'user', content: text, mode };
+                setMessages(prev => [...prev, userMsg]);
+                setInput('');
+                setIsTyping(true);
+                setTimeout(() => {
+                    setMessages(prev => [...prev, { id: Date.now()+1, role: 'assistant', content: getLensResponse(text), mode }]);
+                    setIsTyping(false);
+                }, 1200);
+            };
+
+            if (!isLensOpen) return null;
+
+            const contextLabel = { landing: 'Dashboard', dashboard: 'Dashboard', compare: 'Image Comparison', detect: 'AI Detection', history: 'History' }[currentPage] || 'General';
+
+            return (
+                <div className={`fixed z-50 ${isLensExpanded ? 'inset-4 md:inset-10' : 'bottom-6 right-6 w-[380px] h-[600px] max-h-[80vh]'} flex flex-col bg-white dark:bg-darkcard rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transition-all duration-300`}>
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-primary/10 to-secondary/10">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg gradient-bg"><Icon name="sparkles" size={16} className="text-white" /></div>
+                            <div>
+                                <h3 className="font-poppins font-semibold text-sm">Lens</h3>
+                                <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div><span className="text-[10px] text-gray-500">Online • {contextLabel}</span></div>
+                            </div>
+                        </div>
+                        <div className="flex gap-1">
+                            <button onClick={() => setIsLensExpanded(!isLensExpanded)} className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"><Icon name={isLensExpanded ? 'minimize-2' : 'maximize-2'} size={14} /></button>
+                            <button onClick={() => setIsLensOpen(false)} className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"><Icon name="x" size={14} /></button>
+                        </div>
+                    </div>
+
+                    {/* Modes */}
+                    <div className="flex gap-1 p-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-black/20">
+                        {['explain', 'investigate', 'compare', 'report'].map(m => (
+                            <button key={m} onClick={() => setMode(m)} className={`flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${mode === m ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800'}`}>{m}</button>
+                        ))}
+                    </div>
+
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {messages.map(msg => (
+                            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 rounded-bl-md'}`}>
+                                    <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                                </div>
+                            </div>
+                        ))}
+                        {isTyping && (
+                            <div className="flex items-center gap-2 text-gray-500 text-xs">
+                                <div className="p-1.5 rounded-lg bg-primary/10"><Icon name="scan" size={12} className="text-primary animate-pulse" /></div>
+                                <span>Lens is analyzing evidence...</span>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Suggested */}
+                    <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
+                        {['What changed?', 'Explain AI score', 'Challenge result', 'Summarize'].map(q => (
+                            <button key={q} onClick={() => handleSend(q)} className="whitespace-nowrap px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs hover:bg-primary/10 hover:text-primary transition-colors">{q}</button>
+                        ))}
+                    </div>
+
+                    {/* Input */}
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+                        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2">
+                            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend(input)} placeholder="Ask Lens..." className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400" />
+                            <button onClick={() => handleSend(input)} className="p-1.5 rounded-lg gradient-bg text-white disabled:opacity-50" disabled={!input.trim()}><Icon name="send" size={14} /></button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const LensFloatingButton = () => {
+            const { setIsLensOpen } = useContext(AppContext);
+            return (
+                <button onClick={() => setIsLensOpen(true)} className="fixed bottom-6 right-6 z-40 p-4 rounded-full gradient-bg text-white shadow-xl shadow-primary/30 hover:scale-105 transition-transform pulse-glow md:hidden">
+                    <Icon name="sparkles" size={24} />
+                </button>
+            );
+        };
+
+        // --- PAGES ---
+        const LandingPage = () => {
+            const { setCurrentPage } = useContext(AppContext);
+            const [scanProgress, setScanProgress] = useState(0);
+            
+            useEffect(() => {
+                const timer = setInterval(() => setScanProgress(p => p >= 100 ? 0 : p + 1), 50);
+                return () => clearInterval(timer);
+            }, []);
+
+            return (
+                <div className="fade-in">
+                    {/* Hero */}
+                    <section className="relative overflow-hidden pt-20 pb-32">
+                        <div className="absolute inset-0 bg-gradient-to-br from-lavender/50 via-white to-secondary/5 dark:from-primary/5 dark:via-darkbg dark:to-secondary/5"></div>
+                        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6 border border-primary/20">
+                                <Icon name="sparkles" size={14} /> AI-Powered Visual Investigation
+                            </div>
+                            <h1 className="text-5xl md:text-7xl font-poppins font-bold mb-6 leading-tight">
+                                Is this image telling<br/><span className="gradient-text">the truth?</span>
+                            </h1>
+                            <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10">
+                                TruthLens AI helps you compare, analyze, and investigate images with explainable visual intelligence.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                <Button size="lg" onClick={() => setCurrentPage('compare')} icon="search">Start Investigation</Button>
+                                <Button size="lg" variant="outline" onClick={() => setCurrentPage('dashboard')}>Explore Demo</Button>
+                            </div>
+
+                            {/* Interactive Demo Mockup */}
+                            <div className="mt-20 max-w-4xl mx-auto">
+                                <Card className="overflow-hidden">
+                                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-black/20 border-b border-gray-200 dark:border-gray-800">
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-red-500"></div><div className="w-3 h-3 rounded-full bg-yellow-500"></div><div className="w-3 h-3 rounded-full bg-green-500"></div></div>
+                                            <span className="ml-3 text-xs font-medium text-gray-500">TruthLens Investigation Chamber</span>
+                                        </div>
+                                        <Badge color="success">Demo Mode</Badge>
+                                    </div>
+                                    <div className="grid md:grid-cols-2">
+                                        <div className="relative aspect-square bg-gray-100 dark:bg-gray-900 flex items-center justify-center border-r border-gray-200 dark:border-gray-800">
+                                            <div className="text-center"><div className="text-6xl mb-2">📷</div><p className="font-semibold text-sm">ORIGINAL</p><p className="text-xs text-gray-500">image_original.jpg</p></div>
+                                            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-[10px] font-medium">Original</div>
+                                        </div>
+                                        <div className="relative aspect-square bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
+                                            <div className="text-center"><div className="text-6xl mb-2">🔍</div><p className="font-semibold text-sm">ANALYZED</p><p className="text-xs text-gray-500">image_modified.jpg</p></div>
+                                            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-primary text-white text-[10px] font-medium">Modified</div>
+                                            <div className="absolute inset-x-0 h-0.5 bg-primary/60 scanning-line" style={{top: `${scanProgress}%`}}></div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 border-t border-gray-200 dark:border-gray-800">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <Icon name="scan" size={18} className="text-primary animate-pulse" />
+                                            <span className="text-sm font-medium">Analyzing pixel structure... {scanProgress}%</span>
+                                        </div>
+                                        <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden"><div className="h-full gradient-bg transition-all duration-100" style={{width: `${scanProgress}%`}}></div></div>
+                                        {scanProgress === 100 && (
+                                            <div className="mt-6 grid grid-cols-3 gap-4 fade-in">
+                                                <div className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 text-center"><div className="text-2xl font-bold text-primary mb-1">72/100</div><div className="text-[10px] text-gray-500 uppercase tracking-wider">Authenticity</div></div>
+                                                <div className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 text-center"><div className="text-2xl font-bold text-secondary mb-1">18%</div><div className="text-[10px] text-gray-500 uppercase tracking-wider">AI Probability</div></div>
+                                                <div className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 text-center"><div className="text-2xl font-bold gradient-text mb-1">91%</div><div className="text-[10px] text-gray-500 uppercase tracking-wider">Similarity</div></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Card>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Features */}
+                    <section className="py-24 bg-gray-50 dark:bg-black/20">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="text-center mb-16">
+                                <h2 className="text-3xl md:text-4xl font-poppins font-bold mb-4">Powerful Investigation Tools</h2>
+                                <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">Everything you need to analyze, compare, and understand visual content.</p>
+                            </div>
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[
+                                    { icon: 'search', title: 'Image Comparison', desc: 'Detect visual differences with pixel-level precision.', color: 'from-blue-500 to-cyan-500' },
+                                    { icon: 'shield', title: 'AI Detection', desc: 'Identify AI-generated content with explainable evidence.', color: 'from-primary to-secondary' },
+                                    { icon: 'zap', title: 'Evidence Chain', desc: 'Understand exactly how conclusions are reached.', color: 'from-orange-500 to-red-500' },
+                                    { icon: 'message-square', title: 'Lens AI Assistant', desc: 'Ask questions and get context-aware explanations.', color: 'from-green-500 to-emerald-500' },
+                                    { icon: 'bar-chart-3', title: 'Image Analysis', desc: 'Deep metadata, lighting, and texture analysis.', color: 'from-indigo-500 to-purple-500' },
+                                    { icon: 'file-text', title: 'Investigation Reports', desc: 'Generate comprehensive, exportable evidence reports.', color: 'from-pink-500 to-rose-500' }
+                                ].map((f, i) => (
+                                    <Card key={i} className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+                                        <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${f.color} mb-4`}><Icon name={f.icon} size={20} className="text-white" /></div>
+                                        <h3 className="font-poppins font-semibold text-lg mb-2">{f.title}</h3>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">{f.desc}</p>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            );
+        };
+
+        const DashboardPage = () => {
+            const { setCurrentPage } = useContext(AppContext);
+            const investigations = [
+                { id: 1, title: 'Social Media Image Check', type: 'Detection', score: 87, date: 'Sep 7, 2026', status: 'completed' },
+                { id: 2, title: 'Product Ad Review', type: 'Comparison', score: 21, date: 'Sep 6, 2026', status: 'completed' },
+                { id: 3, title: 'Profile Photo Analysis', type: 'Analysis', score: 94, date: 'Sep 5, 2026', status: 'completed' },
+            ];
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-poppins font-bold mb-2">Good afternoon</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Ready to investigate your next image?</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-4 mb-8">
+                        {[
+                            { icon: 'git-compare', title: 'Compare Images', desc: 'Detect differences', color: 'from-blue-500 to-cyan-500', page: 'compare' },
+                            { icon: 'scan', title: 'AI Detection', desc: 'Check AI generation', color: 'from-primary to-secondary', page: 'detect' },
+                            { icon: 'bar-chart-3', title: 'Image Analysis', desc: 'Deep metadata', color: 'from-orange-500 to-red-500', page: 'detect' }
+                        ].map((a, i) => (
+                            <Card key={i} onClick={() => setCurrentPage(a.page)} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className={`p-3 rounded-xl bg-gradient-to-br ${a.color}`}><Icon name={a.icon} size={20} className="text-white" /></div>
+                                    <Icon name="plus" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
+                                </div>
+                                <h3 className="font-semibold mb-1">{a.title}</h3>
+                                <p className="text-sm text-gray-500">{a.desc}</p>
+                            </Card>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        {[{l:'Total Investigations', v:'47'},{l:'Images Compared', v:'128'},{l:'AI Detections', v:'34'},{l:'Reports Generated', v:'21'}].map((s,i) => (
+                            <Card key={i} className="p-5">
+                                <div className="text-2xl font-poppins font-bold gradient-text mb-1">{s.v}</div>
+                                <div className="text-xs text-gray-500 uppercase tracking-wider">{s.l}</div>
+                            </Card>
+                        ))}
+                    </div>
+
+                    <Card className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20 mb-8">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 rounded-xl gradient-bg"><Icon name="alert-circle" size={20} className="text-white" /></div>
+                            <div className="flex-1">
+                                <h3 className="font-semibold mb-1">Lens Insight</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Your latest investigation contains 7 notable visual differences.</p>
+                                <Button size="sm" variant="outline" onClick={() => window.dispatchEvent(new CustomEvent('openLens'))}>Ask Lens</Button>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <h2 className="text-xl font-poppins font-semibold mb-4">Recent Investigations</h2>
+                    <div className="space-y-3">
+                        {investigations.map(inv => (
+                            <Card key={inv.id} className="p-4 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer" onClick={() => setCurrentPage('compare')}>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Icon name="image" size={20} className="text-gray-400" /></div>
+                                    <div>
+                                        <h4 className="font-medium text-sm">{inv.title}</h4>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge color={inv.type === 'Detection' ? 'secondary' : 'primary'}>{inv.type}</Badge>
+                                            <span className="text-xs text-gray-500">{inv.date}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-right">
+                                        <div className={`text-lg font-bold ${inv.score > 80 ? 'text-secondary' : inv.score > 50 ? 'text-yellow-500' : 'text-green-500'}`}>{inv.score}%</div>
+                                        <div className="text-[10px] text-gray-500 uppercase">Score</div>
+                                    </div>
+                                    <Icon name="chevron-right" size={16} className="text-gray-400" />
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const ComparePage = () => {
+            const [step, setStep] = useState('upload'); // upload, processing, results
+            const [progress, setProgress] = useState(0);
+
+            const startAnalysis = () => {
+                setStep('processing');
+                setProgress(0);
+                const timer = setInterval(() => {
+                    setProgress(p => {
+                        if (p >= 100) { clearInterval(timer); setStep('results'); return 100; }
+                        return p + 2;
+                    });
+                }, 60);
+            };
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                    <div className="flex items-center justify-between mb-8">
+                        <div>
+                            <h1 className="text-3xl font-poppins font-bold mb-2">Image Comparison</h1>
+                            <p className="text-gray-600 dark:text-gray-400">Upload two images to detect visual differences.</p>
+                        </div>
+                    </div>
+
+                    {step === 'upload' && (
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {['A', 'B'].map(slot => (
+                                <Card key={slot} className="p-6">
+                                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                                        <div className={`w-8 h-8 rounded-lg ${slot === 'A' ? 'bg-blue-500' : 'bg-secondary'} flex items-center justify-center text-white font-bold`}>{slot}</div>
+                                        {slot === 'A' ? 'Original Image' : 'Modified Image'}
+                                    </h3>
+                                    <div className="aspect-video rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center hover:border-primary/50 transition-colors cursor-pointer bg-gray-50 dark:bg-black/20" onClick={startAnalysis}>
+                                        <Icon name="upload-cloud" size={32} className="text-gray-400 mb-2" />
+                                        <p className="text-sm font-medium">Click to upload or drag & drop</p>
+                                        <p className="text-xs text-gray-500 mt-1">JPG, PNG, WEBP up to 10MB</p>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+
+                    {step === 'processing' && (
+                        <Card className="p-12 text-center">
+                            <div className="w-20 h-20 mx-auto mb-6 rounded-full gradient-bg flex items-center justify-center pulse-glow">
+                                <Icon name="scan" size={32} className="text-white" />
+                            </div>
+                            <h2 className="text-xl font-poppins font-semibold mb-2">Initializing Visual Forensics...</h2>
+                            <p className="text-gray-500 mb-6">Analyzing pixel structure, metadata, and lighting patterns.</p>
+                            <div className="max-w-md mx-auto h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                <div className="h-full gradient-bg transition-all duration-100" style={{width: `${progress}%`}}></div>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-2">{progress}% Complete</p>
+                        </Card>
+                    )}
+
+                    {step === 'results' && (
+                        <div className="space-y-6">
+                            <Card className="p-6">
+                                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                                    <Button variant="outline" size="sm" icon="arrow-left" onClick={() => setStep('upload')}>New Comparison</Button>
+                                    <div className="flex gap-6 text-sm">
+                                        <div><span className="text-gray-500">Similarity:</span> <span className="font-bold gradient-text ml-1">87%</span></div>
+                                        <div><span className="text-gray-500">Differences:</span> <span className="font-bold ml-1">7</span></div>
+                                        <div><span className="text-gray-500">Modification:</span> <span className="font-bold text-secondary ml-1">32%</span></div>
+                                    </div>
+                                </div>
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-900">
+                                        <div className="absolute inset-0 flex items-center justify-center text-6xl"></div>
+                                        <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-medium">Original</div>
+                                    </div>
+                                    <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-900">
+                                        <div className="absolute inset-0 flex items-center justify-center text-6xl">🔍</div>
+                                        <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-primary text-white text-xs font-medium">Modified</div>
+                                        {/* Simulated Heatmap */}
+                                        <div className="absolute top-1/4 left-1/4 w-1/2 h-1/2 border-2 border-red-500/50 rounded-lg bg-red-500/10 animate-pulse"></div>
+                                        <div className="absolute top-10 right-10 w-20 h-20 border-2 border-yellow-500/50 rounded-full bg-yellow-500/10"></div>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            {/* Evidence Chain */}
+                            <Card className="p-6">
+                                <h3 className="font-poppins font-semibold text-lg mb-6 flex items-center gap-2"><Icon name="link" size={18} className="text-primary" /> Evidence Chain</h3>
+                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {[
+                                        { label: 'Texture Consistency', score: 84, color: 'bg-blue-500' },
+                                        { label: 'Lighting Analysis', score: 91, color: 'bg-secondary' },
+                                        { label: 'Edge Behavior', score: 79, color: 'bg-orange-500' },
+                                        { label: 'Object Consistency', score: 88, color: 'bg-green-500' },
+                                        { label: 'Facial Detail', score: 83, color: 'bg-purple-500' },
+                                        { label: 'Noise Pattern', score: 76, color: 'bg-red-500' }
+                                    ].map((e, i) => (
+                                        <div key={i} className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-gray-800">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-sm font-medium">{e.label}</span>
+                                                <span className="text-sm font-bold">{e.score}%</span>
+                                            </div>
+                                            <div className="h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                <div className={`h-full ${e.color} rounded-full`} style={{width: `${e.score}%`}}></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+
+                            {/* What Changed */}
+                            <Card className="p-6">
+                                <h3 className="font-poppins font-semibold text-lg mb-4 flex items-center gap-2"><Icon name="list" size={18} className="text-primary" /> What Changed?</h3>
+                                <div className="space-y-3">
+                                    {['Background structure changed significantly', 'Main object repositioned', 'Color temperature increased by 15%', 'Shadow patterns are inconsistent', 'Texture quality differs in key areas'].map((d, i) => (
+                                        <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-black/20 transition-colors cursor-pointer">
+                                            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{i+1}</div>
+                                            <span className="text-sm">{d}</span>
+                                            <Icon name="chevron-right" size={14} className="ml-auto text-gray-400" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const DetectPage = () => {
+            return (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-poppins font-bold mb-2">AI Detection</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Analyze images for AI-generated signals.</p>
+                    </div>
+
+                    <div className="grid lg:grid-cols-3 gap-6">
+                        <Card className="p-8 lg:col-span-1 text-center">
+                            <div className="relative w-48 h-48 mx-auto mb-6">
+                                <svg className="w-full h-full transform -rotate-90">
+                                    <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="none" className="text-gray-200 dark:text-gray-800" />
+                                    <circle cx="96" cy="96" r="88" stroke="url(#grad)" strokeWidth="12" fill="none" strokeDasharray="552" strokeDashoffset="72" strokeLinecap="round" />
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-4xl font-poppins font-bold gradient-text">87%</span>
+                                    <span className="text-xs text-gray-500 uppercase tracking-wider mt-1">AI Probability</span>
+                                </div>
+                            </div>
+                            <Badge color="warning">Medium Confidence</Badge>
+                            <p className="text-sm text-gray-500 mt-4 px-4">The model estimates an 87% probability of AI generation. This is an analytical estimate, not absolute proof.</p>
+                            <Button className="w-full mt-6" variant="outline" icon="shield-alert">Challenge This Result</Button>
+                        </Card>
+
+                        <Card className="p-6 lg:col-span-2">
+                            <h3 className="font-poppins font-semibold text-lg mb-6">Visual Evidence Breakdown</h3>
+                            <div className="space-y-5">
+                                {[
+                                    { label: 'Texture Analysis', score: 84, desc: 'Unusual texture consistency detected in background regions.' },
+                                    { label: 'Lighting Analysis', score: 91, desc: 'Several lighting relationships appear inconsistent with the scene.' },
+                                    { label: 'Edge Behavior', score: 79, desc: 'Edge artifacts suggest synthetic generation around object boundaries.' },
+                                    { label: 'Noise Pattern', score: 76, desc: 'Visual noise pattern is irregular compared to natural camera sensor noise.' },
+                                    { label: 'Facial Detail', score: 83, desc: 'Micro-details in facial features show signs of algorithmic smoothing.' }
+                                ].map((e, i) => (
+                                    <div key={i} className="group">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="font-medium text-sm">{e.label}</span>
+                                            <span className={`text-sm font-bold ${e.score > 85 ? 'text-secondary' : e.score > 70 ? 'text-yellow-500' : 'text-green-500'}`}>{e.score}%</span>
+                                        </div>
+                                        <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mb-2">
+                                            <div className={`h-full rounded-full transition-all duration-1000 ${e.score > 85 ? 'bg-secondary' : e.score > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${e.score}%`}}></div>
+                                        </div>
+                                        <p className="text-xs text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">{e.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            );
+        };
+
+        const HistoryPage = () => {
+            const { setCurrentPage } = useContext(AppContext);
+            const items = [
+                { id: 1, title: 'Social Media Image Check', type: 'Detection', score: 87, date: 'Sep 7, 2026', status: 'completed' },
+                { id: 2, title: 'Product Ad Review', type: 'Comparison', score: 21, date: 'Sep 6, 2026', status: 'completed' },
+                { id: 3, title: 'Profile Photo Analysis', type: 'Analysis', score: 94, date: 'Sep 5, 2026', status: 'completed' },
+                { id: 4, title: 'News Article Photo', type: 'Detection', score: 12, date: 'Sep 4, 2026', status: 'completed' },
+                { id: 5, title: 'Real Estate Listing', type: 'Comparison', score: 65, date: 'Sep 3, 2026', status: 'completed' },
+            ];
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                        <div>
+                            <h1 className="text-3xl font-poppins font-bold mb-2">Investigation History</h1>
+                            <p className="text-gray-600 dark:text-gray-400">Review your past visual investigations.</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="relative">
+                                <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input placeholder="Search investigations..." className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm outline-none focus:border-primary w-64" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-gray-50 dark:bg-black/20 border-b border-gray-200 dark:border-gray-800">
+                                    <tr>
+                                        <th className="text-left p-4 font-medium text-gray-500">Investigation</th>
+                                        <th className="text-left p-4 font-medium text-gray-500">Type</th>
+                                        <th className="text-left p-4 font-medium text-gray-500">Score</th>
+                                        <th className="text-left p-4 font-medium text-gray-500">Date</th>
+                                        <th className="text-left p-4 font-medium text-gray-500">Status</th>
+                                        <th className="text-right p-4 font-medium text-gray-500">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {items.map(item => (
+                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-black/20 transition-colors cursor-pointer" onClick={() => setCurrentPage('compare')}>
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Icon name="image" size={16} className="text-gray-400" /></div>
+                                                    <span className="font-medium">{item.title}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4"><Badge color={item.type === 'Detection' ? 'secondary' : 'primary'}>{item.type}</Badge></td>
+                                            <td className="p-4 font-bold">{item.score}%</td>
+                                            <td className="p-4 text-gray-500">{item.date}</td>
+                                            <td className="p-4"><Badge color="success">Completed</Badge></td>
+                                            <td className="p-4 text-right"><Icon name="external-link" size={14} className="text-gray-400" /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+
+        // --- MAIN APP ---
+        const App = () => {
+            const { currentPage } = useContext(AppContext);
+            
+            useEffect(() => { lucide.createIcons(); });
+            useEffect(() => { lucide.createIcons(); }, [currentPage]);
+
+            const renderPage = () => {
+                switch(currentPage) {
+                    case 'landing': return <LandingPage />;
+                    case 'dashboard': return <DashboardPage />;
+                    case 'compare': return <ComparePage />;
+                    case 'detect': return <DetectPage />;
+                    case 'history': return <HistoryPage />;
+                    default: return <LandingPage />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <Navbar />
+                    <main className="flex-1">{renderPage()}</main>
+                    <footer className="border-t border-gray-200 dark:border-gray-800 py-8 mt-12">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <Logo size="sm" />
+                            <div className="text-sm text-gray-500">© 2026 TruthLens AI. Evidence before assumptions.</div>
+                            <div className="flex gap-6 text-sm text-gray-500">
+                                <a href="#" className="hover:text-primary">Privacy</a>
+                                <a href="#" className="hover:text-primary">Terms</a>
+                                <a href="#" className="hover:text-primary">Responsible AI</a>
+                            </div>
+                        </div>
+                    </footer>
+                    <LensChat />
+                    <LensFloatingButton />
+                </div>
+            );
+        };
+
+        const Root = () => (
+            <AppProvider>
+                <App />
+            </AppProvider>
+        );
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+    </script>
+</body>
+</html>
