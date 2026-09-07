@@ -90,6 +90,42 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #6C3BFF; border-radius: 10px; }
+
+        .image-comparison-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .image-comparison-slider {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 4px;
+            height: 100%;
+            background: #6C3BFF;
+            cursor: ew-resize;
+            z-index: 10;
+        }
+        .image-comparison-slider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: #6C3BFF;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(108, 59, 255, 0.5);
+        }
+        .image-comparison-slider::after {
+            content: '↔';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 20px;
+        }
     </style>
 </head>
 <body class="bg-white dark:bg-darkbg text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -106,8 +142,22 @@
             const [theme, setTheme] = useState('light');
             const [isLensOpen, setIsLensOpen] = useState(false);
             const [isLensExpanded, setIsLensExpanded] = useState(false);
+            const [currentUser, setCurrentUser] = useState(null);
+            const [showAuthModal, setShowAuthModal] = useState(false);
             const [investigationData, setInvestigationData] = useState(null);
             const [chatHistory, setChatHistory] = useState([]);
+            const [lensConfig, setLensConfig] = useState({
+                personality: 'professional',
+                responseStyle: 'detailed',
+                autoSuggest: true
+            });
+            const [users, setUsers] = useState([]);
+            const [analytics, setAnalytics] = useState({
+                totalInvestigations: 0,
+                activeUsers: 0,
+                aiDetections: 0,
+                comparisons: 0
+            });
 
             useEffect(() => {
                 if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -116,14 +166,40 @@
 
             const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
 
+            const login = (userData) => {
+                setCurrentUser(userData);
+                setShowAuthModal(false);
+                if (userData.role === 'owner') {
+                    setCurrentPage('owner-dashboard');
+                } else {
+                    setCurrentPage('client-dashboard');
+                }
+            };
+
+            const logout = () => {
+                setCurrentUser(null);
+                setCurrentPage('landing');
+            };
+
+            const register = (userData) => {
+                const newUser = { ...userData, id: Date.now(), role: 'client', createdAt: new Date() };
+                setUsers([...users, newUser]);
+                login(newUser);
+            };
+
             return (
                 <AppContext.Provider value={{
                     currentPage, setCurrentPage,
                     theme, toggleTheme,
                     isLensOpen, setIsLensOpen,
                     isLensExpanded, setIsLensExpanded,
+                    currentUser, login, logout, register,
+                    showAuthModal, setShowAuthModal,
                     investigationData, setInvestigationData,
-                    chatHistory, setChatHistory
+                    chatHistory, setChatHistory,
+                    lensConfig, setLensConfig,
+                    users, setUsers,
+                    analytics, setAnalytics
                 }}>
                     {children}
                 </AppContext.Provider>
@@ -137,17 +213,18 @@
         };
 
         // --- UI COMPONENTS ---
-        const Button = ({ children, variant = 'primary', size = 'md', className = '', onClick, icon }) => {
-            const base = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50";
+        const Button = ({ children, variant = 'primary', size = 'md', className = '', onClick, icon, disabled }) => {
+            const base = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed";
             const variants = {
                 primary: "gradient-bg text-white hover:opacity-90 shadow-lg shadow-primary/20",
                 outline: "border border-gray-200 dark:border-gray-700 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800",
                 ghost: "bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800",
-                secondary: "bg-lavender dark:bg-darkcard text-primary hover:bg-primary/10"
+                secondary: "bg-lavender dark:bg-darkcard text-primary hover:bg-primary/10",
+                google: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             };
             const sizes = { sm: "h-8 px-3 text-sm", md: "h-10 px-5 text-sm", lg: "h-12 px-8 text-base" };
             return (
-                <button onClick={onClick} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}>
+                <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}>
                     {icon && <Icon name={icon} size={16} className="mr-2" />}
                     {children}
                 </button>
@@ -165,9 +242,85 @@
                 primary: "bg-primary/10 text-primary",
                 secondary: "bg-secondary/10 text-secondary",
                 success: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                warning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                warning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+                danger: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
             };
             return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>{children}</span>;
+        };
+
+        const Input = ({ label, type = 'text', placeholder, value, onChange, required }) => (
+            <div className="space-y-2">
+                {label && <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}{required && <span className="text-red-500">*</span>}</label>}
+                <input
+                    type={type}
+                    placeholder={placeholder}
+                    value={value}
+                    onChange={onChange}
+                    required={required}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-darkcard focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+            </div>
+        );
+
+        // --- AUTH MODAL ---
+        const AuthModal = () => {
+            const { showAuthModal, setShowAuthModal, login, register } = useContext(AppContext);
+            const [isLogin, setIsLogin] = useState(true);
+            const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+
+            if (!showAuthModal) return null;
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (isLogin) {
+                    // Mock login
+                    login({ email: formData.email, name: formData.email.split('@')[0], role: 'client' });
+                } else {
+                    register(formData);
+                }
+            };
+
+            const handleGoogleLogin = () => {
+                // Mock Google login
+                login({ email: 'user@gmail.com', name: 'Google User', role: 'client', avatar: 'https://lh3.googleusercontent.com/a/default-user' });
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-darkcard rounded-2xl p-8 max-w-md w-full shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-poppins font-bold">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+                            <button onClick={() => setShowAuthModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                                <Icon name="x" size={20} />
+                            </button>
+                        </div>
+
+                        <Button variant="google" className="w-full mb-4" icon="chrome" onClick={handleGoogleLogin}>
+                            Continue with Google
+                        </Button>
+
+                        <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200 dark:border-gray-700"></div></div>
+                            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white dark:bg-darkcard text-gray-500">Or continue with email</span></div>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {!isLogin && <Input label="Full Name" placeholder="John Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />}
+                            <Input label="Email" type="email" placeholder="you@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+                            <Input label="Password" type="password" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
+                            
+                            <Button type="submit" className="w-full">{isLogin ? 'Sign In' : 'Sign Up'}</Button>
+                        </form>
+
+                        <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+                            {isLogin ? "Don't have an account?" : "Already have an account?"}
+                            <button onClick={() => setIsLogin(!isLogin)} className="ml-2 text-primary font-medium hover:underline">
+                                {isLogin ? 'Sign Up' : 'Sign In'}
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            );
         };
 
         // --- LOGO ---
@@ -199,21 +352,33 @@
 
         // --- NAVBAR ---
         const Navbar = () => {
-            const { currentPage, setCurrentPage, theme, toggleTheme, setIsLensOpen } = useContext(AppContext);
+            const { currentPage, setCurrentPage, theme, toggleTheme, setIsLensOpen, currentUser, setShowAuthModal, logout } = useContext(AppContext);
             const [mobileOpen, setMobileOpen] = useState(false);
-            const links = [
+            
+            const clientLinks = [
                 { id: 'landing', label: 'Home' },
-                { id: 'dashboard', label: 'Dashboard' },
+                { id: 'client-dashboard', label: 'Dashboard' },
                 { id: 'compare', label: 'Compare' },
                 { id: 'detect', label: 'AI Detection' },
+                { id: 'analyze', label: 'Analyze' },
+                { id: 'games', label: 'Games' },
                 { id: 'history', label: 'History' }
             ];
+
+            const ownerLinks = [
+                { id: 'owner-dashboard', label: 'Admin Panel' },
+                { id: 'analytics', label: 'Analytics' },
+                { id: 'users', label: 'Users' },
+                { id: 'lens-config', label: 'Lens Config' }
+            ];
+
+            const links = currentUser?.role === 'owner' ? ownerLinks : clientLinks;
 
             return (
                 <nav className="sticky top-0 z-40 w-full glass border-b border-gray-200 dark:border-gray-800">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between h-16">
-                            <div onClick={() => setCurrentPage('landing')}><Logo size="md" /></div>
+                            <Logo size="md" />
                             
                             <div className="hidden md:flex items-center space-x-1">
                                 {links.map(l => (
@@ -230,9 +395,19 @@
                                 </button>
                                 <button onClick={() => setIsLensOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 relative">
                                     <Icon name="message-square" size={20} />
-                                    <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full"></span>
+                                    <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full animate-pulse"></span>
                                 </button>
-                                <Button onClick={() => setCurrentPage('compare')} icon="search">Start Investigation</Button>
+                                {currentUser ? (
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-right">
+                                            <div className="text-sm font-medium">{currentUser.name}</div>
+                                            <div className="text-xs text-gray-500 capitalize">{currentUser.role}</div>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={logout}>Logout</Button>
+                                    </div>
+                                ) : (
+                                    <Button onClick={() => setShowAuthModal(true)} icon="user">Sign In</Button>
+                                )}
                             </div>
 
                             <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2">
@@ -248,18 +423,22 @@
                                     {l.label}
                                 </button>
                             ))}
-                            <Button className="w-full mt-4" onClick={() => { setCurrentPage('compare'); setMobileOpen(false); }}>Start Investigation</Button>
+                            {currentUser ? (
+                                <Button className="w-full mt-4" variant="outline" onClick={logout}>Logout</Button>
+                            ) : (
+                                <Button className="w-full mt-4" onClick={() => { setShowAuthModal(true); setMobileOpen(false); }}>Sign In</Button>
+                            )}
                         </div>
                     )}
                 </nav>
             );
         };
 
-        // --- LENS CHATBOT ---
+        // --- LENS CHATBOT (VISIBLE & PROMINENT) ---
         const LensChat = () => {
-            const { isLensOpen, setIsLensOpen, isLensExpanded, setIsLensExpanded, currentPage, investigationData } = useContext(AppContext);
+            const { isLensOpen, setIsLensOpen, isLensExpanded, setIsLensExpanded, currentPage, investigationData, lensConfig } = useContext(AppContext);
             const [messages, setMessages] = useState([
-                { id: 1, role: 'assistant', content: "Hi, I'm Lens — your visual investigation copilot. I can help you compare images, understand AI-detection results, and investigate suspicious regions. What would you like to investigate?", mode: 'explain' }
+                { id: 1, role: 'assistant', content: "Hi, I'm Lens — your visual investigation copilot. I'm here to help you analyze images, detect AI content, and uncover the truth. What would you like to investigate today?", mode: 'explain' }
             ]);
             const [input, setInput] = useState('');
             const [mode, setMode] = useState('explain');
@@ -275,7 +454,8 @@
                 if (lower.includes('suspicious') || lower.includes('investigate')) return "Three areas deserve inspection:\n\n1. **Background** - Inconsistent texture\n2. **Face Area** - Unusual edge behavior\n3. **Shadow Region** - Lighting inconsistency\n\nWould you like me to highlight these?";
                 if (lower.includes('report') || lower.includes('summarize')) return "**Investigation Summary**\n\nAuthenticity: 72/100\nAI Probability: 87%\nDifferences: 7\n\n**Key Evidence:** Texture inconsistency, lighting variation, edge artifacts.\n\n**Assessment:** Image may have undergone AI generation. Further verification recommended.";
                 if (lower.includes('challenge')) return "**Counter-Evidence Scan Complete**\n\nSupporting AI generation: 3\nContradicting AI generation: 2\nUncertain: 1\n\n**Revised Probability:** 78% (Medium Confidence)\n\nThe second analysis found natural lighting relationships that weaken the original assessment.";
-                return "I can help analyze visual differences, explain AI detection results, or generate reports. Try asking: 'What changed?', 'Explain the AI score', or 'Challenge this result'.";
+                if (lower.includes('game') || lower.includes('play')) return "We have exciting games! Try our **Image Puzzle Challenge** where you spot the AI-generated differences, or **Forensic Detective** where you solve visual mysteries. Check out the Games tab!";
+                return "I can help analyze visual differences, explain AI detection results, investigate suspicious areas, or generate reports. Try asking: 'What changed?', 'Explain the AI score', 'Challenge this result', or 'Tell me about games'.";
             };
 
             const handleSend = (text) => {
@@ -292,16 +472,16 @@
 
             if (!isLensOpen) return null;
 
-            const contextLabel = { landing: 'Dashboard', dashboard: 'Dashboard', compare: 'Image Comparison', detect: 'AI Detection', history: 'History' }[currentPage] || 'General';
+            const contextLabel = { landing: 'Dashboard', dashboard: 'Dashboard', compare: 'Image Comparison', detect: 'AI Detection', analyze: 'Image Analysis', games: 'Games', history: 'History', 'client-dashboard': 'Client Dashboard', 'owner-dashboard': 'Owner Dashboard' }[currentPage] || 'General';
 
             return (
-                <div className={`fixed z-50 ${isLensExpanded ? 'inset-4 md:inset-10' : 'bottom-6 right-6 w-[380px] h-[600px] max-h-[80vh]'} flex flex-col bg-white dark:bg-darkcard rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transition-all duration-300`}>
+                <div className={`fixed z-50 ${isLensExpanded ? 'inset-4 md:inset-10' : 'bottom-24 right-6 w-[380px] h-[600px] max-h-[80vh]'} flex flex-col bg-white dark:bg-darkcard rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transition-all duration-300`}>
                     {/* Header */}
                     <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-primary/10 to-secondary/10">
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg gradient-bg"><Icon name="sparkles" size={16} className="text-white" /></div>
                             <div>
-                                <h3 className="font-poppins font-semibold text-sm">Lens</h3>
+                                <h3 className="font-poppins font-semibold text-sm">Lens AI Assistant</h3>
                                 <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div><span className="text-[10px] text-gray-500">Online • {contextLabel}</span></div>
                             </div>
                         </div>
@@ -338,7 +518,7 @@
 
                     {/* Suggested */}
                     <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
-                        {['What changed?', 'Explain AI score', 'Challenge result', 'Summarize'].map(q => (
+                        {['What changed?', 'Explain AI score', 'Challenge result', 'Tell me about games', 'Summarize'].map(q => (
                             <button key={q} onClick={() => handleSend(q)} className="whitespace-nowrap px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs hover:bg-primary/10 hover:text-primary transition-colors">{q}</button>
                         ))}
                     </div>
@@ -346,7 +526,7 @@
                     {/* Input */}
                     <div className="p-3 border-t border-gray-200 dark:border-gray-800">
                         <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2">
-                            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend(input)} placeholder="Ask Lens..." className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400" />
+                            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend(input)} placeholder="Ask Lens anything..." className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400" />
                             <button onClick={() => handleSend(input)} className="p-1.5 rounded-lg gradient-bg text-white disabled:opacity-50" disabled={!input.trim()}><Icon name="send" size={14} /></button>
                         </div>
                     </div>
@@ -357,15 +537,19 @@
         const LensFloatingButton = () => {
             const { setIsLensOpen } = useContext(AppContext);
             return (
-                <button onClick={() => setIsLensOpen(true)} className="fixed bottom-6 right-6 z-40 p-4 rounded-full gradient-bg text-white shadow-xl shadow-primary/30 hover:scale-105 transition-transform pulse-glow md:hidden">
-                    <Icon name="sparkles" size={24} />
+                <button onClick={() => setIsLensOpen(true)} className="fixed bottom-6 right-6 z-40 p-4 rounded-full gradient-bg text-white shadow-xl shadow-primary/30 hover:scale-110 transition-transform pulse-glow">
+                    <Icon name="sparkles" size={28} />
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-white"></span>
+                    </span>
                 </button>
             );
         };
 
         // --- PAGES ---
         const LandingPage = () => {
-            const { setCurrentPage } = useContext(AppContext);
+            const { setCurrentPage, setShowAuthModal } = useContext(AppContext);
             const [scanProgress, setScanProgress] = useState(0);
             
             useEffect(() => {
@@ -390,10 +574,10 @@
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
                                 <Button size="lg" onClick={() => setCurrentPage('compare')} icon="search">Start Investigation</Button>
-                                <Button size="lg" variant="outline" onClick={() => setCurrentPage('dashboard')}>Explore Demo</Button>
+                                <Button size="lg" variant="outline" onClick={() => setCurrentPage('games')} icon="gamepad-2">Play Games</Button>
                             </div>
 
-                            {/* Interactive Demo Mockup */}
+                            {/* Interactive Demo */}
                             <div className="mt-20 max-w-4xl mx-auto">
                                 <Card className="overflow-hidden">
                                     <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-black/20 border-b border-gray-200 dark:border-gray-800">
@@ -401,7 +585,7 @@
                                             <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-red-500"></div><div className="w-3 h-3 rounded-full bg-yellow-500"></div><div className="w-3 h-3 rounded-full bg-green-500"></div></div>
                                             <span className="ml-3 text-xs font-medium text-gray-500">TruthLens Investigation Chamber</span>
                                         </div>
-                                        <Badge color="success">Demo Mode</Badge>
+                                        <Badge color="success">Live Demo</Badge>
                                     </div>
                                     <div className="grid md:grid-cols-2">
                                         <div className="relative aspect-square bg-gray-100 dark:bg-gray-900 flex items-center justify-center border-r border-gray-200 dark:border-gray-800">
@@ -442,12 +626,12 @@
                             </div>
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {[
-                                    { icon: 'search', title: 'Image Comparison', desc: 'Detect visual differences with pixel-level precision.', color: 'from-blue-500 to-cyan-500' },
+                                    { icon: 'git-compare', title: 'Image Comparison', desc: 'Detect visual differences with pixel-level precision.', color: 'from-blue-500 to-cyan-500' },
                                     { icon: 'shield', title: 'AI Detection', desc: 'Identify AI-generated content with explainable evidence.', color: 'from-primary to-secondary' },
                                     { icon: 'zap', title: 'Evidence Chain', desc: 'Understand exactly how conclusions are reached.', color: 'from-orange-500 to-red-500' },
                                     { icon: 'message-square', title: 'Lens AI Assistant', desc: 'Ask questions and get context-aware explanations.', color: 'from-green-500 to-emerald-500' },
                                     { icon: 'bar-chart-3', title: 'Image Analysis', desc: 'Deep metadata, lighting, and texture analysis.', color: 'from-indigo-500 to-purple-500' },
-                                    { icon: 'file-text', title: 'Investigation Reports', desc: 'Generate comprehensive, exportable evidence reports.', color: 'from-pink-500 to-rose-500' }
+                                    { icon: 'gamepad-2', title: 'Interactive Games', desc: 'Learn forensics through fun challenges and puzzles.', color: 'from-pink-500 to-rose-500' }
                                 ].map((f, i) => (
                                     <Card key={i} className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
                                         <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${f.color} mb-4`}><Icon name={f.icon} size={20} className="text-white" /></div>
@@ -462,9 +646,16 @@
             );
         };
 
-        const DashboardPage = () => {
-            const { setCurrentPage } = useContext(AppContext);
-            const investigations = [
+        const ClientDashboard = () => {
+            const { currentUser, setCurrentPage } = useContext(AppContext);
+            const stats = [
+                { label: 'Total Investigations', value: '47', icon: 'search', color: 'from-blue-500 to-cyan-500' },
+                { label: 'Images Compared', value: '128', icon: 'git-compare', color: 'from-primary to-secondary' },
+                { label: 'AI Detections', value: '34', icon: 'shield', color: 'from-orange-500 to-red-500' },
+                { label: 'Reports Generated', value: '21', icon: 'file-text', color: 'from-green-500 to-emerald-500' }
+            ];
+
+            const recentInvestigations = [
                 { id: 1, title: 'Social Media Image Check', type: 'Detection', score: 87, date: 'Sep 7, 2026', status: 'completed' },
                 { id: 2, title: 'Product Ad Review', type: 'Comparison', score: 21, date: 'Sep 6, 2026', status: 'completed' },
                 { id: 3, title: 'Profile Photo Analysis', type: 'Analysis', score: 94, date: 'Sep 5, 2026', status: 'completed' },
@@ -473,50 +664,55 @@
             return (
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
                     <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">Good afternoon</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Ready to investigate your next image?</p>
+                        <h1 className="text-3xl font-poppins font-bold mb-2">Welcome back, {currentUser?.name}!</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Here's what's happening with your investigations today.</p>
                     </div>
 
+                    {/* Quick Actions */}
                     <div className="grid md:grid-cols-3 gap-4 mb-8">
-                        {[
-                            { icon: 'git-compare', title: 'Compare Images', desc: 'Detect differences', color: 'from-blue-500 to-cyan-500', page: 'compare' },
-                            { icon: 'scan', title: 'AI Detection', desc: 'Check AI generation', color: 'from-primary to-secondary', page: 'detect' },
-                            { icon: 'bar-chart-3', title: 'Image Analysis', desc: 'Deep metadata', color: 'from-orange-500 to-red-500', page: 'detect' }
-                        ].map((a, i) => (
-                            <Card key={i} onClick={() => setCurrentPage(a.page)} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`p-3 rounded-xl bg-gradient-to-br ${a.color}`}><Icon name={a.icon} size={20} className="text-white" /></div>
-                                    <Icon name="plus" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
-                                </div>
-                                <h3 className="font-semibold mb-1">{a.title}</h3>
-                                <p className="text-sm text-gray-500">{a.desc}</p>
-                            </Card>
-                        ))}
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        {[{l:'Total Investigations', v:'47'},{l:'Images Compared', v:'128'},{l:'AI Detections', v:'34'},{l:'Reports Generated', v:'21'}].map((s,i) => (
-                            <Card key={i} className="p-5">
-                                <div className="text-2xl font-poppins font-bold gradient-text mb-1">{s.v}</div>
-                                <div className="text-xs text-gray-500 uppercase tracking-wider">{s.l}</div>
-                            </Card>
-                        ))}
-                    </div>
-
-                    <Card className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20 mb-8">
-                        <div className="flex items-start gap-4">
-                            <div className="p-3 rounded-xl gradient-bg"><Icon name="alert-circle" size={20} className="text-white" /></div>
-                            <div className="flex-1">
-                                <h3 className="font-semibold mb-1">Lens Insight</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Your latest investigation contains 7 notable visual differences.</p>
-                                <Button size="sm" variant="outline" onClick={() => window.dispatchEvent(new CustomEvent('openLens'))}>Ask Lens</Button>
+                        <Card onClick={() => setCurrentPage('compare')} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500"><Icon name="git-compare" size={20} className="text-white" /></div>
+                                <Icon name="arrow-right" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
                             </div>
-                        </div>
-                    </Card>
+                            <h3 className="font-semibold mb-1">Compare Images</h3>
+                            <p className="text-sm text-gray-500">Detect differences between two images</p>
+                        </Card>
 
+                        <Card onClick={() => setCurrentPage('detect')} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary"><Icon name="shield" size={20} className="text-white" /></div>
+                                <Icon name="arrow-right" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
+                            </div>
+                            <h3 className="font-semibold mb-1">AI Detection</h3>
+                            <p className="text-sm text-gray-500">Check if an image is AI-generated</p>
+                        </Card>
+
+                        <Card onClick={() => setCurrentPage('games')} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="p-3 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500"><Icon name="gamepad-2" size={20} className="text-white" /></div>
+                                <Icon name="arrow-right" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
+                            </div>
+                            <h3 className="font-semibold mb-1">Play Games</h3>
+                            <p className="text-sm text-gray-500">Learn through interactive challenges</p>
+                        </Card>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        {stats.map((stat, i) => (
+                            <Card key={i} className="p-5">
+                                <div className={`inline-flex p-2 rounded-lg bg-gradient-to-br ${stat.color} mb-3`}><Icon name={stat.icon} size={16} className="text-white" /></div>
+                                <div className="text-2xl font-poppins font-bold gradient-text mb-1">{stat.value}</div>
+                                <div className="text-xs text-gray-500 uppercase tracking-wider">{stat.label}</div>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* Recent Activity */}
                     <h2 className="text-xl font-poppins font-semibold mb-4">Recent Investigations</h2>
                     <div className="space-y-3">
-                        {investigations.map(inv => (
+                        {recentInvestigations.map(inv => (
                             <Card key={inv.id} className="p-4 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer" onClick={() => setCurrentPage('compare')}>
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Icon name="image" size={20} className="text-gray-400" /></div>
@@ -543,18 +739,50 @@
         };
 
         const ComparePage = () => {
-            const [step, setStep] = useState('upload'); // upload, processing, results
-            const [progress, setProgress] = useState(0);
+            const [step, setStep] = useState('upload');
+            const [imageA, setImageA] = useState(null);
+            const [imageB, setImageB] = useState(null);
+            const [sliderPosition, setSliderPosition] = useState(50);
+            const [isDragging, setIsDragging] = useState(false);
+            const containerRef = useRef(null);
+
+            const handleImageUpload = (file, slot) => {
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        if (slot === 'A') setImageA(e.target.result);
+                        else setImageB(e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleMouseMove = (e) => {
+                if (!isDragging || !containerRef.current) return;
+                const rect = containerRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
+                setSliderPosition(percentage);
+            };
+
+            const handleMouseUp = () => setIsDragging(false);
+
+            useEffect(() => {
+                if (isDragging) {
+                    window.addEventListener('mousemove', handleMouseMove);
+                    window.addEventListener('mouseup', handleMouseUp);
+                    return () => {
+                        window.removeEventListener('mousemove', handleMouseMove);
+                        window.removeEventListener('mouseup', handleMouseUp);
+                    };
+                }
+            }, [isDragging]);
 
             const startAnalysis = () => {
-                setStep('processing');
-                setProgress(0);
-                const timer = setInterval(() => {
-                    setProgress(p => {
-                        if (p >= 100) { clearInterval(timer); setStep('results'); return 100; }
-                        return p + 2;
-                    });
-                }, 60);
+                if (imageA && imageB) {
+                    setStep('processing');
+                    setTimeout(() => setStep('results'), 3000);
+                }
             };
 
             return (
@@ -574,10 +802,28 @@
                                         <div className={`w-8 h-8 rounded-lg ${slot === 'A' ? 'bg-blue-500' : 'bg-secondary'} flex items-center justify-center text-white font-bold`}>{slot}</div>
                                         {slot === 'A' ? 'Original Image' : 'Modified Image'}
                                     </h3>
-                                    <div className="aspect-video rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center hover:border-primary/50 transition-colors cursor-pointer bg-gray-50 dark:bg-black/20" onClick={startAnalysis}>
-                                        <Icon name="upload-cloud" size={32} className="text-gray-400 mb-2" />
-                                        <p className="text-sm font-medium">Click to upload or drag & drop</p>
-                                        <p className="text-xs text-gray-500 mt-1">JPG, PNG, WEBP up to 10MB</p>
+                                    <div 
+                                        className="aspect-video rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center hover:border-primary/50 transition-colors cursor-pointer bg-gray-50 dark:bg-black/20 relative overflow-hidden"
+                                        onClick={() => document.getElementById(`file-${slot}`).click()}
+                                    >
+                                        <input 
+                                            type="file" 
+                                            id={`file-${slot}`} 
+                                            className="hidden" 
+                                            accept="image/*"
+                                            onChange={(e) => handleImageUpload(e.target.files[0], slot)}
+                                        />
+                                        {slot === 'A' && imageA ? (
+                                            <img src={imageA} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
+                                        ) : slot === 'B' && imageB ? (
+                                            <img src={imageB} alt="Modified" className="absolute inset-0 w-full h-full object-cover" />
+                                        ) : (
+                                            <>
+                                                <Icon name="upload-cloud" size={32} className="text-gray-400 mb-2" />
+                                                <p className="text-sm font-medium">Click to upload</p>
+                                                <p className="text-xs text-gray-500 mt-1">JPG, PNG, WEBP</p>
+                                            </>
+                                        )}
                                     </div>
                                 </Card>
                             ))}
@@ -592,9 +838,8 @@
                             <h2 className="text-xl font-poppins font-semibold mb-2">Initializing Visual Forensics...</h2>
                             <p className="text-gray-500 mb-6">Analyzing pixel structure, metadata, and lighting patterns.</p>
                             <div className="max-w-md mx-auto h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                                <div className="h-full gradient-bg transition-all duration-100" style={{width: `${progress}%`}}></div>
+                                <div className="h-full gradient-bg animate-pulse" style={{width: '100%'}}></div>
                             </div>
-                            <p className="text-sm text-gray-500 mt-2">{progress}% Complete</p>
                         </Card>
                     )}
 
@@ -602,25 +847,30 @@
                         <div className="space-y-6">
                             <Card className="p-6">
                                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                                    <Button variant="outline" size="sm" icon="arrow-left" onClick={() => setStep('upload')}>New Comparison</Button>
+                                    <Button variant="outline" size="sm" icon="arrow-left" onClick={() => { setStep('upload'); setImageA(null); setImageB(null); }}>New Comparison</Button>
                                     <div className="flex gap-6 text-sm">
                                         <div><span className="text-gray-500">Similarity:</span> <span className="font-bold gradient-text ml-1">87%</span></div>
                                         <div><span className="text-gray-500">Differences:</span> <span className="font-bold ml-1">7</span></div>
                                         <div><span className="text-gray-500">Modification:</span> <span className="font-bold text-secondary ml-1">32%</span></div>
                                     </div>
                                 </div>
-                                <div className="grid md:grid-cols-2 gap-4">
-                                    <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-900">
-                                        <div className="absolute inset-0 flex items-center justify-center text-6xl"></div>
-                                        <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-medium">Original</div>
+                                
+                                {/* Interactive Comparison Slider */}
+                                <div 
+                                    ref={containerRef}
+                                    className="relative aspect-video rounded-xl overflow-hidden cursor-ew-resize select-none"
+                                    onMouseDown={() => setIsDragging(true)}
+                                >
+                                    <img src={imageB} alt="Modified" className="absolute inset-0 w-full h-full object-cover" />
+                                    <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPosition}%` }}>
+                                        <img src={imageA} alt="Original" className="absolute inset-0 w-full h-full object-cover" style={{ width: `${100 / (sliderPosition / 100)}%` }} />
                                     </div>
-                                    <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-900">
-                                        <div className="absolute inset-0 flex items-center justify-center text-6xl">🔍</div>
-                                        <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-primary text-white text-xs font-medium">Modified</div>
-                                        {/* Simulated Heatmap */}
-                                        <div className="absolute top-1/4 left-1/4 w-1/2 h-1/2 border-2 border-red-500/50 rounded-lg bg-red-500/10 animate-pulse"></div>
-                                        <div className="absolute top-10 right-10 w-20 h-20 border-2 border-yellow-500/50 rounded-full bg-yellow-500/10"></div>
-                                    </div>
+                                    <div 
+                                        className="image-comparison-slider"
+                                        style={{ left: `${sliderPosition}%` }}
+                                    />
+                                    <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-medium">Original</div>
+                                    <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-primary text-white text-xs font-medium">Modified</div>
                                 </div>
                             </Card>
 
@@ -648,16 +898,107 @@
                                     ))}
                                 </div>
                             </Card>
+                        </div>
+                    )}
+                </div>
+            );
+        };
 
-                            {/* What Changed */}
-                            <Card className="p-6">
-                                <h3 className="font-poppins font-semibold text-lg mb-4 flex items-center gap-2"><Icon name="list" size={18} className="text-primary" /> What Changed?</h3>
-                                <div className="space-y-3">
-                                    {['Background structure changed significantly', 'Main object repositioned', 'Color temperature increased by 15%', 'Shadow patterns are inconsistent', 'Texture quality differs in key areas'].map((d, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-black/20 transition-colors cursor-pointer">
-                                            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{i+1}</div>
-                                            <span className="text-sm">{d}</span>
-                                            <Icon name="chevron-right" size={14} className="ml-auto text-gray-400" />
+        const DetectPage = () => {
+            const [image, setImage] = useState(null);
+            const [analyzing, setAnalyzing] = useState(false);
+            const [result, setResult] = useState(null);
+
+            const handleUpload = (file) => {
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        setImage(e.target.result);
+                        analyzeImage();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const analyzeImage = () => {
+                setAnalyzing(true);
+                setTimeout(() => {
+                    setResult({
+                        aiProbability: 87,
+                        confidence: 'high',
+                        evidence: [
+                            { label: 'Texture Analysis', score: 84, desc: 'Unusual texture consistency detected' },
+                            { label: 'Lighting Analysis', score: 91, desc: 'Lighting relationships inconsistent' },
+                            { label: 'Edge Behavior', score: 79, desc: 'Edge artifacts suggest synthetic generation' },
+                            { label: 'Noise Pattern', score: 76, desc: 'Visual noise pattern is irregular' }
+                        ]
+                    });
+                    setAnalyzing(false);
+                }, 3000);
+            };
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-poppins font-bold mb-2">AI Detection</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Analyze images for AI-generated signals.</p>
+                    </div>
+
+                    {!image ? (
+                        <Card className="p-12 text-center">
+                            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                                <Icon name="shield" size={40} className="text-white" />
+                            </div>
+                            <h2 className="text-xl font-poppins font-semibold mb-2">Upload Image for Analysis</h2>
+                            <p className="text-gray-500 mb-6">Drag and drop or click to upload</p>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleUpload(e.target.files[0])}
+                                className="hidden" 
+                                id="detect-upload"
+                            />
+                            <Button onClick={() => document.getElementById('detect-upload').click()} icon="upload">Choose File</Button>
+                        </Card>
+                    ) : analyzing ? (
+                        <Card className="p-12 text-center">
+                            <div className="w-20 h-20 mx-auto mb-6 rounded-full gradient-bg flex items-center justify-center pulse-glow">
+                                <Icon name="scan" size={32} className="text-white" />
+                            </div>
+                            <h2 className="text-xl font-poppins font-semibold mb-2">Analyzing Image...</h2>
+                            <p className="text-gray-500">Examining texture, lighting, edges, and noise patterns</p>
+                        </Card>
+                    ) : (
+                        <div className="grid lg:grid-cols-3 gap-6">
+                            <Card className="p-8 lg:col-span-1 text-center">
+                                <img src={image} alt="Analyzed" className="w-full aspect-square object-cover rounded-xl mb-6" />
+                                <div className="relative w-48 h-48 mx-auto mb-6">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="none" className="text-gray-200 dark:text-gray-800" />
+                                        <circle cx="96" cy="96" r="88" stroke="url(#grad)" strokeWidth="12" fill="none" strokeDasharray="552" strokeDashoffset={552 - (552 * result.aiProbability / 100)} strokeLinecap="round" />
+                                    </svg>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span className="text-4xl font-poppins font-bold gradient-text">{result.aiProbability}%</span>
+                                        <span className="text-xs text-gray-500 uppercase tracking-wider mt-1">AI Probability</span>
+                                    </div>
+                                </div>
+                                <Badge color={result.confidence === 'high' ? 'danger' : 'warning'}>{result.confidence.charAt(0).toUpperCase() + result.confidence.slice(1)} Confidence</Badge>
+                                <Button className="w-full mt-6" variant="outline" icon="refresh-cw" onClick={() => { setImage(null); setResult(null); }}>Analyze Another</Button>
+                            </Card>
+
+                            <Card className="p-6 lg:col-span-2">
+                                <h3 className="font-poppins font-semibold text-lg mb-6">Visual Evidence Breakdown</h3>
+                                <div className="space-y-5">
+                                    {result.evidence.map((e, i) => (
+                                        <div key={i} className="group">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="font-medium text-sm">{e.label}</span>
+                                                <span className={`text-sm font-bold ${e.score > 85 ? 'text-secondary' : e.score > 70 ? 'text-yellow-500' : 'text-green-500'}`}>{e.score}%</span>
+                                            </div>
+                                            <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mb-2">
+                                                <div className={`h-full rounded-full transition-all duration-1000 ${e.score > 85 ? 'bg-secondary' : e.score > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${e.score}%`}}></div>
+                                            </div>
+                                            <p className="text-xs text-gray-500">{e.desc}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -668,82 +1009,153 @@
             );
         };
 
-        const DetectPage = () => {
+        const AnalyzePage = () => {
+            const [image, setImage] = useState(null);
+            const [analysis, setAnalysis] = useState(null);
+
+            const handleUpload = (file) => {
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        setImage(e.target.result);
+                        // Simulate analysis
+                        setAnalysis({
+                            resolution: '1920x1080',
+                            format: file.type,
+                            size: (file.size / 1024).toFixed(2) + ' KB',
+                            brightness: 72,
+                            contrast: 68,
+                            sharpness: 85,
+                            noise: 'low',
+                            metadata: {
+                                camera: 'Unknown',
+                                date: new Date().toLocaleDateString(),
+                                software: 'Adobe Photoshop'
+                            }
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
             return (
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
                     <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">AI Detection</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Analyze images for AI-generated signals.</p>
+                        <h1 className="text-3xl font-poppins font-bold mb-2">Image Analysis</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Deep metadata and quality analysis.</p>
                     </div>
 
-                    <div className="grid lg:grid-cols-3 gap-6">
-                        <Card className="p-8 lg:col-span-1 text-center">
-                            <div className="relative w-48 h-48 mx-auto mb-6">
-                                <svg className="w-full h-full transform -rotate-90">
-                                    <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="none" className="text-gray-200 dark:text-gray-800" />
-                                    <circle cx="96" cy="96" r="88" stroke="url(#grad)" strokeWidth="12" fill="none" strokeDasharray="552" strokeDashoffset="72" strokeLinecap="round" />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-4xl font-poppins font-bold gradient-text">87%</span>
-                                    <span className="text-xs text-gray-500 uppercase tracking-wider mt-1">AI Probability</span>
+                    {!image ? (
+                        <Card className="p-12 text-center">
+                            <Icon name="image" size={64} className="mx-auto mb-4 text-gray-400" />
+                            <h2 className="text-xl font-poppins font-semibold mb-2">Upload Image to Analyze</h2>
+                            <input type="file" accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} className="hidden" id="analyze-upload" />
+                            <Button onClick={() => document.getElementById('analyze-upload').click()} icon="upload">Select Image</Button>
+                        </Card>
+                    ) : (
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <Card className="p-6">
+                                <img src={image} alt="Analyzed" className="w-full rounded-xl mb-4" />
+                                <div className="space-y-3">
+                                    <div className="flex justify-between"><span className="text-gray-500">Resolution</span><span className="font-medium">{analysis.resolution}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-500">Format</span><span className="font-medium">{analysis.format}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-500">File Size</span><span className="font-medium">{analysis.size}</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-500">Noise Level</span><Badge color="success">{analysis.noise}</Badge></div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-6">
+                                <h3 className="font-poppins font-semibold mb-6">Quality Metrics</h3>
+                                <div className="space-y-4">
+                                    {[
+                                        { label: 'Brightness', value: analysis.brightness },
+                                        { label: 'Contrast', value: analysis.contrast },
+                                        { label: 'Sharpness', value: analysis.sharpness }
+                                    ].map((m, i) => (
+                                        <div key={i}>
+                                            <div className="flex justify-between mb-1">
+                                                <span className="text-sm">{m.label}</span>
+                                                <span className="text-sm font-medium">{m.value}%</span>
+                                            </div>
+                                            <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                <div className="h-full gradient-bg rounded-full" style={{width: `${m.value}%`}}></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const GamesPage = () => {
+            const [activeGame, setActiveGame] = useState(null);
+            const [score, setScore] = useState(0);
+
+            const games = [
+                { id: 'spot-diff', title: 'Spot the Difference', desc: 'Find AI-generated differences between two images', icon: 'eye', color: 'from-blue-500 to-cyan-500' },
+                { id: 'ai-or-real', title: 'AI or Real?', desc: 'Guess whether images are AI-generated or real', icon: 'brain', color: 'from-primary to-secondary' },
+                { id: 'forensic', title: 'Forensic Detective', desc: 'Solve visual mysteries and uncover manipulation', icon: 'search', color: 'from-orange-500 to-red-500' },
+                { id: 'puzzle', title: 'Image Puzzle', desc: 'Reconstruct images and detect anomalies', icon: 'puzzle', color: 'from-green-500 to-emerald-500' }
+            ];
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-poppins font-bold mb-2">Games & Challenges</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Learn visual forensics through fun interactive games.</p>
+                    </div>
+
+                    {!activeGame ? (
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {games.map(game => (
+                                <Card key={game.id} onClick={() => setActiveGame(game.id)} className="p-8 hover:shadow-xl transition-all cursor-pointer group">
+                                    <div className={`inline-flex p-4 rounded-2xl bg-gradient-to-br ${game.color} mb-4`}>
+                                        <Icon name={game.icon} size={32} className="text-white" />
+                                    </div>
+                                    <h3 className="text-xl font-poppins font-semibold mb-2">{game.title}</h3>
+                                    <p className="text-gray-600 dark:text-gray-400 mb-4">{game.desc}</p>
+                                    <Button variant="outline" className="w-full">Play Now</Button>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : (
+                        <Card className="p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-2xl font-poppins font-bold">{games.find(g => g.id === activeGame).title}</h2>
+                                <div className="flex items-center gap-4">
+                                    <Badge color="primary">Score: {score}</Badge>
+                                    <Button variant="outline" size="sm" onClick={() => setActiveGame(null)}>Exit Game</Button>
                                 </div>
                             </div>
-                            <Badge color="warning">Medium Confidence</Badge>
-                            <p className="text-sm text-gray-500 mt-4 px-4">The model estimates an 87% probability of AI generation. This is an analytical estimate, not absolute proof.</p>
-                            <Button className="w-full mt-6" variant="outline" icon="shield-alert">Challenge This Result</Button>
-                        </Card>
-
-                        <Card className="p-6 lg:col-span-2">
-                            <h3 className="font-poppins font-semibold text-lg mb-6">Visual Evidence Breakdown</h3>
-                            <div className="space-y-5">
-                                {[
-                                    { label: 'Texture Analysis', score: 84, desc: 'Unusual texture consistency detected in background regions.' },
-                                    { label: 'Lighting Analysis', score: 91, desc: 'Several lighting relationships appear inconsistent with the scene.' },
-                                    { label: 'Edge Behavior', score: 79, desc: 'Edge artifacts suggest synthetic generation around object boundaries.' },
-                                    { label: 'Noise Pattern', score: 76, desc: 'Visual noise pattern is irregular compared to natural camera sensor noise.' },
-                                    { label: 'Facial Detail', score: 83, desc: 'Micro-details in facial features show signs of algorithmic smoothing.' }
-                                ].map((e, i) => (
-                                    <div key={i} className="group">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="font-medium text-sm">{e.label}</span>
-                                            <span className={`text-sm font-bold ${e.score > 85 ? 'text-secondary' : e.score > 70 ? 'text-yellow-500' : 'text-green-500'}`}>{e.score}%</span>
-                                        </div>
-                                        <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mb-2">
-                                            <div className={`h-full rounded-full transition-all duration-1000 ${e.score > 85 ? 'bg-secondary' : e.score > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${e.score}%`}}></div>
-                                        </div>
-                                        <p className="text-xs text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">{e.desc}</p>
-                                    </div>
-                                ))}
+                            
+                            <div className="aspect-video bg-gray-100 dark:bg-gray-900 rounded-xl flex items-center justify-center">
+                                <div className="text-center">
+                                    <Icon name={games.find(g => g.id === activeGame).icon} size={64} className="mx-auto mb-4 text-gray-400" />
+                                    <p className="text-lg font-medium mb-4">Game Loading...</p>
+                                    <Button onClick={() => setScore(s => s + Math.floor(Math.random() * 100))}>Complete Challenge (+Points)</Button>
+                                </div>
                             </div>
                         </Card>
-                    </div>
+                    )}
                 </div>
             );
         };
 
         const HistoryPage = () => {
-            const { setCurrentPage } = useContext(AppContext);
             const items = [
                 { id: 1, title: 'Social Media Image Check', type: 'Detection', score: 87, date: 'Sep 7, 2026', status: 'completed' },
                 { id: 2, title: 'Product Ad Review', type: 'Comparison', score: 21, date: 'Sep 6, 2026', status: 'completed' },
                 { id: 3, title: 'Profile Photo Analysis', type: 'Analysis', score: 94, date: 'Sep 5, 2026', status: 'completed' },
-                { id: 4, title: 'News Article Photo', type: 'Detection', score: 12, date: 'Sep 4, 2026', status: 'completed' },
-                { id: 5, title: 'Real Estate Listing', type: 'Comparison', score: 65, date: 'Sep 3, 2026', status: 'completed' },
             ];
 
             return (
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                        <div>
-                            <h1 className="text-3xl font-poppins font-bold mb-2">Investigation History</h1>
-                            <p className="text-gray-600 dark:text-gray-400">Review your past visual investigations.</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <div className="relative">
-                                <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input placeholder="Search investigations..." className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm outline-none focus:border-primary w-64" />
-                            </div>
-                        </div>
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-poppins font-bold mb-2">Investigation History</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Review your past visual investigations.</p>
                     </div>
 
                     <Card className="overflow-hidden">
@@ -756,12 +1168,11 @@
                                         <th className="text-left p-4 font-medium text-gray-500">Score</th>
                                         <th className="text-left p-4 font-medium text-gray-500">Date</th>
                                         <th className="text-left p-4 font-medium text-gray-500">Status</th>
-                                        <th className="text-right p-4 font-medium text-gray-500">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {items.map(item => (
-                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-black/20 transition-colors cursor-pointer" onClick={() => setCurrentPage('compare')}>
+                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-black/20">
                                             <td className="p-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Icon name="image" size={16} className="text-gray-400" /></div>
@@ -772,13 +1183,120 @@
                                             <td className="p-4 font-bold">{item.score}%</td>
                                             <td className="p-4 text-gray-500">{item.date}</td>
                                             <td className="p-4"><Badge color="success">Completed</Badge></td>
-                                            <td className="p-4 text-right"><Icon name="external-link" size={14} className="text-gray-400" /></td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </Card>
+                </div>
+            );
+        };
+
+        const OwnerDashboard = () => {
+            const { analytics, setAnalytics, users, lensConfig, setLensConfig } = useContext(AppContext);
+            const [activeTab, setActiveTab] = useState('overview');
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-poppins font-bold mb-2">Owner Dashboard</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Manage your TruthLens AI platform.</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-4 gap-4 mb-8">
+                        {[
+                            { label: 'Total Users', value: users.length + 1, icon: 'users', color: 'from-blue-500 to-cyan-500' },
+                            { label: 'Investigations', value: analytics.totalInvestigations, icon: 'search', color: 'from-primary to-secondary' },
+                            { label: 'AI Detections', value: analytics.aiDetections, icon: 'shield', color: 'from-orange-500 to-red-500' },
+                            { label: 'Active Now', value: analytics.activeUsers, icon: 'activity', color: 'from-green-500 to-emerald-500' }
+                        ].map((stat, i) => (
+                            <Card key={i} className="p-6">
+                                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${stat.color} mb-3`}>
+                                    <Icon name={stat.icon} size={20} className="text-white" />
+                                </div>
+                                <div className="text-3xl font-poppins font-bold gradient-text mb-1">{stat.value}</div>
+                                <div className="text-sm text-gray-500">{stat.label}</div>
+                            </Card>
+                        ))}
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-6">
+                        <Card className="p-6">
+                            <h3 className="font-poppins font-semibold mb-4 flex items-center gap-2">
+                                <Icon name="sparkles" size={18} className="text-primary" /> Lens Configuration
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">Personality</label>
+                                    <select 
+                                        value={lensConfig.personality}
+                                        onChange={(e) => setLensConfig({...lensConfig, personality: e.target.value})}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent"
+                                    >
+                                        <option value="professional">Professional</option>
+                                        <option value="friendly">Friendly</option>
+                                        <option value="technical">Technical</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium mb-2 block">Response Style</label>
+                                    <select 
+                                        value={lensConfig.responseStyle}
+                                        onChange={(e) => setLensConfig({...lensConfig, responseStyle: e.target.value})}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent"
+                                    >
+                                        <option value="concise">Concise</option>
+                                        <option value="detailed">Detailed</option>
+                                        <option value="educational">Educational</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm">Auto-suggestions</span>
+                                    <button 
+                                        onClick={() => setLensConfig({...lensConfig, autoSuggest: !lensConfig.autoSuggest})}
+                                        className={`w-12 h-6 rounded-full transition-colors ${lensConfig.autoSuggest ? 'bg-primary' : 'bg-gray-300'}`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full bg-white transform transition-transform ${lensConfig.autoSuggest ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
+                                    </button>
+                                </div>
+                                <Button className="w-full" onClick={() => alert('Lens configuration updated!')}>Save Changes</Button>
+                            </div>
+                        </Card>
+
+                        <Card className="p-6">
+                            <h3 className="font-poppins font-semibold mb-4 flex items-center gap-2">
+                                <Icon name="users" size={18} className="text-primary" /> Recent Users
+                            </h3>
+                            <div className="space-y-3">
+                                {users.slice(-5).map(user => (
+                                    <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-black/20">
+                                        <div className="w-10 h-10 rounded-full gradient-bg flex items-center justify-center text-white font-bold">
+                                            {user.name.charAt(0)}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-sm">{user.name}</div>
+                                            <div className="text-xs text-gray-500">{user.email}</div>
+                                        </div>
+                                        <Badge color="success">Active</Badge>
+                                    </div>
+                                ))}
+                                {users.length === 0 && <p className="text-sm text-gray-500 text-center">No users yet</p>}
+                            </div>
+                        </Card>
+
+                        <Card className="p-6">
+                            <h3 className="font-poppins font-semibold mb-4 flex items-center gap-2">
+                                <Icon name="settings" size={18} className="text-primary" /> Platform Settings
+                            </h3>
+                            <div className="space-y-3">
+                                <Button variant="outline" className="w-full justify-start" icon="database">Export Data</Button>
+                                <Button variant="outline" className="w-full justify-start" icon="mail">Send Announcement</Button>
+                                <Button variant="outline" className="w-full justify-start" icon="shield">Moderation Tools</Button>
+                                <Button variant="outline" className="w-full justify-start" icon="bar-chart">View Analytics</Button>
+                            </div>
+                        </Card>
+                    </div>
                 </div>
             );
         };
@@ -793,10 +1311,13 @@
             const renderPage = () => {
                 switch(currentPage) {
                     case 'landing': return <LandingPage />;
-                    case 'dashboard': return <DashboardPage />;
+                    case 'client-dashboard': return <ClientDashboard />;
                     case 'compare': return <ComparePage />;
                     case 'detect': return <DetectPage />;
+                    case 'analyze': return <AnalyzePage />;
+                    case 'games': return <GamesPage />;
                     case 'history': return <HistoryPage />;
+                    case 'owner-dashboard': return <OwnerDashboard />;
                     default: return <LandingPage />;
                 }
             };
@@ -818,6 +1339,7 @@
                     </footer>
                     <LensChat />
                     <LensFloatingButton />
+                    <AuthModal />
                 </div>
             );
         };
