@@ -3,24 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TruthLens AI - See what changed. Know what's real.</title>
+    <title>TruthLens AI - Professional Image Forensics</title>
     
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script>
@@ -31,10 +21,7 @@
                     colors: {
                         primary: '#6C3BFF',
                         secondary: '#E83E8C',
-                        deep: '#27154D',
-                        lavender: '#F1ECFF',
-                        darkbg: '#0A0614',
-                        darkcard: '#150E26',
+                        accent: '#00D9FF',
                     },
                     fontFamily: {
                         poppins: ['Poppins', 'sans-serif'],
@@ -53,20 +40,19 @@
             background: linear-gradient(135deg, #6C3BFF 0%, #E83E8C 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
         .gradient-bg {
             background: linear-gradient(135deg, #6C3BFF 0%, #E83E8C 100%);
         }
-        .glass {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        .gradient-hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-        .dark .glass {
-            background: rgba(21, 14, 38, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
         }
+        .float-animation { animation: float 6s ease-in-out infinite; }
         
         @keyframes scan {
             0% { transform: translateY(-100%); }
@@ -74,90 +60,72 @@
         }
         .scanning-line { animation: scan 2s ease-in-out infinite; }
         
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(108, 59, 255, 0.4); }
-            50% { box-shadow: 0 0 0 10px rgba(108, 59, 255, 0); }
+        .drop-zone {
+            border: 3px dashed #6C3BFF;
+            transition: all 0.3s ease;
         }
-        .pulse-glow { animation: pulse-glow 2s infinite; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .drop-zone:hover, .drop-zone.drag-over {
+            background: rgba(108, 59, 255, 0.1);
+            transform: scale(1.02);
+            border-color: #E83E8C;
         }
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #6C3BFF; border-radius: 10px; }
-
-        .image-comparison-container {
-            position: relative;
-            overflow: hidden;
-        }
+        
         .image-comparison-slider {
             position: absolute;
             top: 0;
             left: 50%;
             width: 4px;
             height: 100%;
-            background: #6C3BFF;
+            background: linear-gradient(to bottom, #6C3BFF, #E83E8C);
             cursor: ew-resize;
             z-index: 10;
+            box-shadow: 0 0 20px rgba(108, 59, 255, 0.8);
         }
         .image-comparison-slider::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            background: #6C3BFF;
-            border-radius: 50%;
-            box-shadow: 0 0 20px rgba(108, 59, 255, 0.5);
-        }
-        .image-comparison-slider::after {
             content: '↔';
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: white;
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6C3BFF;
             font-size: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #6C3BFF; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5a33d5; }
     </style>
 </head>
-<body class="bg-white dark:bg-darkbg text-gray-900 dark:text-gray-100 transition-colors duration-300">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef, createContext, useContext } = React;
 
-        // --- CONTEXT & STATE ---
         const AppContext = createContext();
 
         const AppProvider = ({ children }) => {
             const [currentPage, setCurrentPage] = useState('landing');
             const [theme, setTheme] = useState('light');
             const [isLensOpen, setIsLensOpen] = useState(false);
-            const [isLensExpanded, setIsLensExpanded] = useState(false);
             const [currentUser, setCurrentUser] = useState(null);
             const [showAuthModal, setShowAuthModal] = useState(false);
             const [investigationData, setInvestigationData] = useState(null);
-            const [chatHistory, setChatHistory] = useState([]);
-            const [lensConfig, setLensConfig] = useState({
-                personality: 'professional',
-                responseStyle: 'detailed',
-                autoSuggest: true
-            });
-            const [users, setUsers] = useState([]);
-            const [analytics, setAnalytics] = useState({
-                totalInvestigations: 0,
-                activeUsers: 0,
-                aiDetections: 0,
-                comparisons: 0
-            });
+            const [users] = useState([
+                { email: 'admin@truthlens.ai', password: 'TruthLens2026!', name: 'Admin', role: 'owner' }
+            ]);
+            const [reviews, setReviews] = useState([]);
+            const [complaints, setComplaints] = useState([]);
 
             useEffect(() => {
                 if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -166,14 +134,21 @@
 
             const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
 
-            const login = (userData) => {
-                setCurrentUser(userData);
-                setShowAuthModal(false);
-                if (userData.role === 'owner') {
-                    setCurrentPage('owner-dashboard');
-                } else {
-                    setCurrentPage('client-dashboard');
+            const login = (email, password) => {
+                const user = users.find(u => u.email === email && u.password === password);
+                if (user) {
+                    setCurrentUser(user);
+                    setShowAuthModal(false);
+                    setCurrentPage(user.role === 'owner' ? 'owner-dashboard' : 'client-dashboard');
+                    return true;
                 }
+                return false;
+            };
+
+            const googleLogin = () => {
+                setCurrentUser({ email: 'user@gmail.com', name: 'Google User', role: 'client' });
+                setShowAuthModal(false);
+                setCurrentPage('client-dashboard');
             };
 
             const logout = () => {
@@ -181,10 +156,16 @@
                 setCurrentPage('landing');
             };
 
-            const register = (userData) => {
-                const newUser = { ...userData, id: Date.now(), role: 'client', createdAt: new Date() };
-                setUsers([...users, newUser]);
-                login(newUser);
+            const submitReview = (review) => {
+                setReviews([...reviews, { ...review, id: Date.now(), date: new Date().toLocaleDateString(), replied: false }]);
+            };
+
+            const submitComplaint = (complaint) => {
+                setComplaints([...complaints, { ...complaint, id: Date.now(), date: new Date().toLocaleDateString(), status: 'pending', reply: '' }]);
+            };
+
+            const replyToComplaint = (id, replyText) => {
+                setComplaints(complaints.map(c => c.id === id ? { ...c, reply: replyText, status: 'replied' } : c));
             };
 
             return (
@@ -192,47 +173,41 @@
                     currentPage, setCurrentPage,
                     theme, toggleTheme,
                     isLensOpen, setIsLensOpen,
-                    isLensExpanded, setIsLensExpanded,
-                    currentUser, login, logout, register,
+                    currentUser, login, logout, googleLogin,
                     showAuthModal, setShowAuthModal,
                     investigationData, setInvestigationData,
-                    chatHistory, setChatHistory,
-                    lensConfig, setLensConfig,
-                    users, setUsers,
-                    analytics, setAnalytics
+                    reviews, submitReview,
+                    complaints, submitComplaint, replyToComplaint
                 }}>
                     {children}
                 </AppContext.Provider>
             );
         };
 
-        // --- ICONS HELPER ---
         const Icon = ({ name, size = 20, className = "" }) => {
             useEffect(() => { lucide.createIcons(); }, [name]);
             return <i data-lucide={name} width={size} height={size} className={className}></i>;
         };
 
-        // --- UI COMPONENTS ---
-        const Button = ({ children, variant = 'primary', size = 'md', className = '', onClick, icon, disabled }) => {
-            const base = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed";
+        const Button = ({ children, variant = 'primary', size = 'md', className = '', onClick, icon, disabled, type = 'button' }) => {
             const variants = {
-                primary: "gradient-bg text-white hover:opacity-90 shadow-lg shadow-primary/20",
-                outline: "border border-gray-200 dark:border-gray-700 bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800",
-                ghost: "bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800",
-                secondary: "bg-lavender dark:bg-darkcard text-primary hover:bg-primary/10",
-                google: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                primary: "bg-gradient-to-r from-primary to-secondary text-white hover:shadow-xl hover:scale-105",
+                outline: "border-2 border-primary text-primary hover:bg-primary hover:text-white",
+                ghost: "hover:bg-gray-100 dark:hover:bg-gray-800",
+                google: "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50 hover:shadow-lg"
             };
-            const sizes = { sm: "h-8 px-3 text-sm", md: "h-10 px-5 text-sm", lg: "h-12 px-8 text-base" };
+            const sizes = { sm: "h-10 px-4 text-sm", md: "h-12 px-6", lg: "h-14 px-8 text-lg" };
             return (
-                <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}>
-                    {icon && <Icon name={icon} size={16} className="mr-2" />}
+                <button type={type} onClick={onClick} disabled={disabled} 
+                    className={`inline-flex items-center justify-center rounded-xl font-semibold transition-all transform ${variants[variant]} ${sizes[size]} ${className} disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}>
+                    {icon && <Icon name={icon} size={18} className="mr-2" />}
                     {children}
                 </button>
             );
         };
 
-        const Card = ({ children, className = '', onClick }) => (
-            <div onClick={onClick} className={`bg-white dark:bg-darkcard rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''} ${className}`}>
+        const Card = ({ children, className = '', hover = true }) => (
+            <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 ${hover ? 'hover:shadow-2xl hover:-translate-y-1' : ''} transition-all duration-300 ${className}`}>
                 {children}
             </div>
         );
@@ -240,81 +215,82 @@
         const Badge = ({ children, color = 'primary' }) => {
             const colors = {
                 primary: "bg-primary/10 text-primary",
-                secondary: "bg-secondary/10 text-secondary",
                 success: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
                 warning: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-                danger: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                danger: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                info: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
             };
-            return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[color]}`}>{children}</span>;
+            return <span className={`px-3 py-1 rounded-full text-xs font-bold ${colors[color]}`}>{children}</span>;
         };
 
         const Input = ({ label, type = 'text', placeholder, value, onChange, required }) => (
             <div className="space-y-2">
-                {label && <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}{required && <span className="text-red-500">*</span>}</label>}
-                <input
-                    type={type}
-                    placeholder={placeholder}
-                    value={value}
-                    onChange={onChange}
-                    required={required}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-darkcard focus:outline-none focus:ring-2 focus:ring-primary/50"
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{label}{required && <span className="text-red-500">*</span>}</label>
+                <input type={type} placeholder={placeholder} required={required}
+                    value={value} onChange={onChange}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary transition-colors"
                 />
             </div>
         );
 
-        // --- AUTH MODAL ---
+        // AUTH MODAL
         const AuthModal = () => {
-            const { showAuthModal, setShowAuthModal, login, register } = useContext(AppContext);
+            const { showAuthModal, setShowAuthModal, login, googleLogin } = useContext(AppContext);
             const [isLogin, setIsLogin] = useState(true);
             const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+            const [error, setError] = useState('');
 
             if (!showAuthModal) return null;
 
             const handleSubmit = (e) => {
                 e.preventDefault();
-                if (isLogin) {
-                    // Mock login
-                    login({ email: formData.email, name: formData.email.split('@')[0], role: 'client' });
-                } else {
-                    register(formData);
-                }
-            };
-
-            const handleGoogleLogin = () => {
-                // Mock Google login
-                login({ email: 'user@gmail.com', name: 'Google User', role: 'client', avatar: 'https://lh3.googleusercontent.com/a/default-user' });
+                setError('');
+                const success = login(formData.email, formData.password);
+                if (!success) setError('Invalid credentials');
             };
 
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-darkcard rounded-2xl p-8 max-w-md w-full shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-poppins font-bold">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
-                            <button onClick={() => setShowAuthModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                                <Icon name="x" size={20} />
-                            </button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 max-w-md w-full relative shadow-2xl">
+                        <button onClick={() => setShowAuthModal(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                            <Icon name="x" size={20} />
+                        </button>
+                        
+                        <div className="text-center mb-6">
+                            <div className="w-20 h-20 gradient-bg rounded-2xl flex items-center justify-center mx-auto mb-4 float-animation">
+                                <Icon name="shield" size={40} className="text-white" />
+                            </div>
+                            <h2 className="text-3xl font-poppins font-bold gradient-text">{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+                            <p className="text-gray-500 mt-2">Access your TruthLens AI account</p>
                         </div>
 
-                        <Button variant="google" className="w-full mb-4" icon="chrome" onClick={handleGoogleLogin}>
+                        <Button variant="google" className="w-full mb-4" icon="chrome" onClick={googleLogin}>
                             Continue with Google
                         </Button>
 
                         <div className="relative my-6">
                             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200 dark:border-gray-700"></div></div>
-                            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white dark:bg-darkcard text-gray-500">Or continue with email</span></div>
+                            <div className="relative flex justify-center text-sm"><span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Or continue with email</span></div>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {!isLogin && <Input label="Full Name" placeholder="John Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />}
-                            <Input label="Email" type="email" placeholder="you@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
-                            <Input label="Password" type="password" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
+                            {!isLogin && (
+                                <Input label="Full Name" placeholder="John Doe" value={formData.name} 
+                                    onChange={e => setFormData({...formData, name: e.target.value})} required />
+                            )}
+                            <Input label="Email" type="email" placeholder="you@example.com" value={formData.email} 
+                                onChange={e => setFormData({...formData, email: e.target.value})} required />
+                            <Input label="Password" type="password" placeholder="••••••••" value={formData.password} 
+                                onChange={e => setFormData({...formData, password: e.target.value})} required />
+                            
+                            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
                             
                             <Button type="submit" className="w-full">{isLogin ? 'Sign In' : 'Sign Up'}</Button>
                         </form>
 
                         <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
                             {isLogin ? "Don't have an account?" : "Already have an account?"}
-                            <button onClick={() => setIsLogin(!isLogin)} className="ml-2 text-primary font-medium hover:underline">
+                            <button onClick={() => setIsLogin(!isLogin)} className="ml-2 text-primary font-semibold hover:underline">
                                 {isLogin ? 'Sign Up' : 'Sign In'}
                             </button>
                         </p>
@@ -323,320 +299,239 @@
             );
         };
 
-        // --- LOGO ---
-        const Logo = ({ size = 'md', showText = true }) => {
-            const s = { sm: 24, md: 32, lg: 48 }[size];
-            return (
-                <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => window.location.hash = '#landing'}>
-                    <svg width={s} height={s} viewBox="0 0 48 48" fill="none">
-                        <path d="M24 8C14 8 6 16 6 24C6 32 14 40 24 40C34 40 42 32 42 24C42 16 34 8 24 8Z" stroke="#6C3BFF" strokeWidth="3" fill="url(#grad)" fillOpacity="0.1"/>
-                        <circle cx="24" cy="24" r="10" stroke="#6C3BFF" strokeWidth="2.5" fill="url(#grad)"/>
-                        <circle cx="24" cy="24" r="5" fill="#27154D"/>
-                        <circle cx="26" cy="22" r="2" fill="white" fillOpacity="0.8"/>
-                        <path d="M38 12L40 10L42 12L40 14L38 12Z" fill="#E83E8C">
-                            <animateTransform attributeName="transform" type="rotate" from="0 40 12" to="360 40 12" dur="3s" repeatCount="indefinite"/>
-                        </path>
-                        <defs><linearGradient id="grad" x1="6" y1="8" x2="42" y2="40"><stop stopColor="#6C3BFF"/><stop offset="1" stopColor="#E83E8C"/></linearGradient></defs>
-                    </svg>
-                    {showText && (
-                        <div className="flex flex-col">
-                            <span className={`font-poppins font-bold ${size === 'lg' ? 'text-2xl' : 'text-lg'} leading-none`}>
-                                TruthLens <span className="gradient-text">AI</span>
-                            </span>
-                            {size === 'lg' && <span className="text-xs text-gray-500 font-inter mt-1">See what changed. Know what's real.</span>}
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        // --- NAVBAR ---
+        // NAVBAR
         const Navbar = () => {
             const { currentPage, setCurrentPage, theme, toggleTheme, setIsLensOpen, currentUser, setShowAuthModal, logout } = useContext(AppContext);
-            const [mobileOpen, setMobileOpen] = useState(false);
             
             const clientLinks = [
-                { id: 'landing', label: 'Home' },
-                { id: 'client-dashboard', label: 'Dashboard' },
-                { id: 'compare', label: 'Compare' },
-                { id: 'detect', label: 'AI Detection' },
-                { id: 'analyze', label: 'Analyze' },
-                { id: 'games', label: 'Games' },
-                { id: 'history', label: 'History' }
+                { id: 'landing', label: 'Home', icon: 'home' },
+                { id: 'client-dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+                { id: 'compare', label: 'Compare', icon: 'git-compare' },
+                { id: 'detect', label: 'AI Detection', icon: 'shield' },
+                { id: 'games', label: 'Games', icon: 'gamepad-2' },
+                { id: 'reviews', label: 'Reviews', icon: 'star' },
+                { id: 'about', label: 'About', icon: 'users' }
             ];
 
             const ownerLinks = [
-                { id: 'owner-dashboard', label: 'Admin Panel' },
-                { id: 'analytics', label: 'Analytics' },
-                { id: 'users', label: 'Users' },
-                { id: 'lens-config', label: 'Lens Config' }
+                { id: 'owner-dashboard', label: 'Admin Panel', icon: 'shield' },
+                { id: 'complaints', label: 'Complaints', icon: 'message-square' },
+                { id: 'analytics', label: 'Analytics', icon: 'bar-chart-3' }
             ];
 
             const links = currentUser?.role === 'owner' ? ownerLinks : clientLinks;
 
             return (
-                <nav className="sticky top-0 z-40 w-full glass border-b border-gray-200 dark:border-gray-800">
+                <nav className="sticky top-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex items-center justify-between h-16">
-                            <Logo size="md" />
-                            
-                            <div className="hidden md:flex items-center space-x-1">
+                            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('landing')}>
+                                <div className="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center">
+                                    <Icon name="eye" size={24} className="text-white" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="font-poppins font-bold text-xl">TruthLens<span className="gradient-text">AI</span></span>
+                                </div>
+                            </div>
+
+                            <div className="hidden lg:flex items-center space-x-1">
                                 {links.map(l => (
                                     <button key={l.id} onClick={() => setCurrentPage(l.id)}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === l.id ? 'bg-primary/10 text-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+                                        className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${currentPage === l.id ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+                                        <Icon name={l.icon} size={16} />
                                         {l.label}
                                     </button>
                                 ))}
                             </div>
 
-                            <div className="hidden md:flex items-center gap-3">
-                                <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                            <div className="flex items-center gap-3">
+                                <button onClick={toggleTheme} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                                     <Icon name={theme === 'light' ? 'moon' : 'sun'} size={20} />
                                 </button>
-                                <button onClick={() => setIsLensOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 relative">
+                                <button onClick={() => setIsLensOpen(true)} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 relative transition-colors">
                                     <Icon name="message-square" size={20} />
-                                    <span className="absolute top-1 right-1 w-2 h-2 bg-secondary rounded-full animate-pulse"></span>
+                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></span>
                                 </button>
                                 {currentUser ? (
                                     <div className="flex items-center gap-3">
-                                        <div className="text-right">
-                                            <div className="text-sm font-medium">{currentUser.name}</div>
+                                        <div className="hidden md:block text-right">
+                                            <div className="text-sm font-semibold">{currentUser.name}</div>
                                             <div className="text-xs text-gray-500 capitalize">{currentUser.role}</div>
+                                        </div>
+                                        <div className="w-10 h-10 gradient-bg rounded-full flex items-center justify-center text-white font-bold">
+                                            {currentUser.name.charAt(0)}
                                         </div>
                                         <Button variant="outline" size="sm" onClick={logout}>Logout</Button>
                                     </div>
                                 ) : (
-                                    <Button onClick={() => setShowAuthModal(true)} icon="user">Sign In</Button>
+                                    <Button onClick={() => setShowAuthModal(true)} size="sm">Sign In</Button>
                                 )}
                             </div>
-
-                            <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2">
-                                <Icon name={mobileOpen ? 'x' : 'menu'} size={24} />
-                            </button>
                         </div>
                     </div>
-                    {mobileOpen && (
-                        <div className="md:hidden border-t border-gray-200 dark:border-gray-800 p-4 space-y-2 bg-white dark:bg-darkbg">
-                            {links.map(l => (
-                                <button key={l.id} onClick={() => { setCurrentPage(l.id); setMobileOpen(false); }}
-                                    className="block w-full text-left px-4 py-3 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800">
-                                    {l.label}
-                                </button>
-                            ))}
-                            {currentUser ? (
-                                <Button className="w-full mt-4" variant="outline" onClick={logout}>Logout</Button>
-                            ) : (
-                                <Button className="w-full mt-4" onClick={() => { setShowAuthModal(true); setMobileOpen(false); }}>Sign In</Button>
-                            )}
-                        </div>
-                    )}
                 </nav>
             );
         };
 
-        // --- LENS CHATBOT (VISIBLE & PROMINENT) ---
+        // LENS CHATBOT
         const LensChat = () => {
-            const { isLensOpen, setIsLensOpen, isLensExpanded, setIsLensExpanded, currentPage, investigationData, lensConfig } = useContext(AppContext);
+            const { isLensOpen, setIsLensOpen, investigationData } = useContext(AppContext);
             const [messages, setMessages] = useState([
-                { id: 1, role: 'assistant', content: "Hi, I'm Lens — your visual investigation copilot. I'm here to help you analyze images, detect AI content, and uncover the truth. What would you like to investigate today?", mode: 'explain' }
+                { id: 1, role: 'assistant', content: "Hi! I'm Lens, your AI investigation assistant. Upload an image and I'll help you analyze it!" }
             ]);
             const [input, setInput] = useState('');
-            const [mode, setMode] = useState('explain');
-            const [isTyping, setIsTyping] = useState(false);
             const chatEndRef = useRef(null);
 
-            useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
+            useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-            const getLensResponse = (msg) => {
+            const getResponse = (msg) => {
+                if (!investigationData) return "Please upload an image first, then I can help analyze it!";
+                
                 const lower = msg.toLowerCase();
-                if (lower.includes('what changed') || lower.includes('difference')) return "I found 7 notable visual differences:\n\n1. **Background** - Structure changed significantly\n2. **Object Position** - Main object repositioned\n3. **Color** - Temperature increased by 15%\n4. **Lighting** - Shadow patterns inconsistent\n5. **Texture** - Quality differs in key areas\n6. **Edges** - Sharpness varies\n7. **Contrast** - Overall contrast increased\n\nThe background shows the strongest change.";
-                if (lower.includes('ai probability') || lower.includes('score')) return "The model estimates an **87% probability** of AI generation.\n\nBased on:\n• Texture Analysis (84%)\n• Lighting Analysis (91%)\n• Edge Behavior (79%)\n• Noise Pattern (76%)\n\n*Note: This is an analytical estimate, not absolute proof.*";
-                if (lower.includes('suspicious') || lower.includes('investigate')) return "Three areas deserve inspection:\n\n1. **Background** - Inconsistent texture\n2. **Face Area** - Unusual edge behavior\n3. **Shadow Region** - Lighting inconsistency\n\nWould you like me to highlight these?";
-                if (lower.includes('report') || lower.includes('summarize')) return "**Investigation Summary**\n\nAuthenticity: 72/100\nAI Probability: 87%\nDifferences: 7\n\n**Key Evidence:** Texture inconsistency, lighting variation, edge artifacts.\n\n**Assessment:** Image may have undergone AI generation. Further verification recommended.";
-                if (lower.includes('challenge')) return "**Counter-Evidence Scan Complete**\n\nSupporting AI generation: 3\nContradicting AI generation: 2\nUncertain: 1\n\n**Revised Probability:** 78% (Medium Confidence)\n\nThe second analysis found natural lighting relationships that weaken the original assessment.";
-                if (lower.includes('game') || lower.includes('play')) return "We have exciting games! Try our **Image Puzzle Challenge** where you spot the AI-generated differences, or **Forensic Detective** where you solve visual mysteries. Check out the Games tab!";
-                return "I can help analyze visual differences, explain AI detection results, investigate suspicious areas, or generate reports. Try asking: 'What changed?', 'Explain the AI score', 'Challenge this result', or 'Tell me about games'.";
+                if (lower.includes('score') || lower.includes('probability')) {
+                    return `**AI Probability: ${investigationData.aiProbability}%**\n\nBased on:\n• Texture: ${investigationData.evidence[0].score}%\n• Lighting: ${investigationData.evidence[1].score}%\n• Edges: ${investigationData.evidence[2].score}%\n\nThis is an analytical estimate.`;
+                }
+                if (lower.includes('difference') || lower.includes('changed')) {
+                    return `I detected ${investigationData.differences || 7} key differences including background changes, object positioning, and lighting variations.`;
+                }
+                return "I can explain the AI score, analyze differences, or provide detailed evidence. What would you like to know?";
             };
 
-            const handleSend = (text) => {
-                if (!text.trim()) return;
-                const userMsg = { id: Date.now(), role: 'user', content: text, mode };
-                setMessages(prev => [...prev, userMsg]);
+            const handleSend = () => {
+                if (!input.trim()) return;
+                setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: input }]);
                 setInput('');
-                setIsTyping(true);
                 setTimeout(() => {
-                    setMessages(prev => [...prev, { id: Date.now()+1, role: 'assistant', content: getLensResponse(text), mode }]);
-                    setIsTyping(false);
-                }, 1200);
+                    setMessages(prev => [...prev, { id: Date.now()+1, role: 'assistant', content: getResponse(input) }]);
+                }, 1000);
             };
 
             if (!isLensOpen) return null;
 
-            const contextLabel = { landing: 'Dashboard', dashboard: 'Dashboard', compare: 'Image Comparison', detect: 'AI Detection', analyze: 'Image Analysis', games: 'Games', history: 'History', 'client-dashboard': 'Client Dashboard', 'owner-dashboard': 'Owner Dashboard' }[currentPage] || 'General';
-
             return (
-                <div className={`fixed z-50 ${isLensExpanded ? 'inset-4 md:inset-10' : 'bottom-24 right-6 w-[380px] h-[600px] max-h-[80vh]'} flex flex-col bg-white dark:bg-darkcard rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden transition-all duration-300`}>
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-primary/10 to-secondary/10">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg gradient-bg"><Icon name="sparkles" size={16} className="text-white" /></div>
-                            <div>
-                                <h3 className="font-poppins font-semibold text-sm">Lens AI Assistant</h3>
-                                <div className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div><span className="text-[10px] text-gray-500">Online • {contextLabel}</span></div>
+                <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border-2 border-gray-200 dark:border-gray-700 z-50 flex flex-col overflow-hidden">
+                    <div className="p-4 gradient-bg text-white">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-xl"><Icon name="sparkles" size={20} /></div>
+                                <div>
+                                    <h3 className="font-bold">Lens AI Assistant</h3>
+                                    <div className="flex items-center gap-1.5 text-xs opacity-90">
+                                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                        Online
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex gap-1">
-                            <button onClick={() => setIsLensExpanded(!isLensExpanded)} className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"><Icon name={isLensExpanded ? 'minimize-2' : 'maximize-2'} size={14} /></button>
-                            <button onClick={() => setIsLensOpen(false)} className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"><Icon name="x" size={14} /></button>
+                            <button onClick={() => setIsLensOpen(false)} className="p-2 hover:bg-white/20 rounded-xl"><Icon name="x" size={18} /></button>
                         </div>
                     </div>
 
-                    {/* Modes */}
-                    <div className="flex gap-1 p-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-black/20">
-                        {['explain', 'investigate', 'compare', 'report'].map(m => (
-                            <button key={m} onClick={() => setMode(m)} className={`flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${mode === m ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800'}`}>{m}</button>
-                        ))}
-                    </div>
-
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 dark:bg-gray-900">
                         {messages.map(msg => (
                             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${msg.role === 'user' ? 'bg-primary text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 rounded-bl-md'}`}>
-                                    <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
+                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${msg.role === 'user' ? 'gradient-bg text-white rounded-br-md' : 'bg-white dark:bg-gray-800 rounded-bl-md shadow-md'}`}>
+                                    <div className="whitespace-pre-wrap">{msg.content}</div>
                                 </div>
                             </div>
                         ))}
-                        {isTyping && (
-                            <div className="flex items-center gap-2 text-gray-500 text-xs">
-                                <div className="p-1.5 rounded-lg bg-primary/10"><Icon name="scan" size={12} className="text-primary animate-pulse" /></div>
-                                <span>Lens is analyzing evidence...</span>
-                            </div>
-                        )}
                         <div ref={chatEndRef} />
                     </div>
 
-                    {/* Suggested */}
-                    <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
-                        {['What changed?', 'Explain AI score', 'Challenge result', 'Tell me about games', 'Summarize'].map(q => (
-                            <button key={q} onClick={() => handleSend(q)} className="whitespace-nowrap px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-xs hover:bg-primary/10 hover:text-primary transition-colors">{q}</button>
-                        ))}
-                    </div>
-
-                    {/* Input */}
-                    <div className="p-3 border-t border-gray-200 dark:border-gray-800">
-                        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2">
-                            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend(input)} placeholder="Ask Lens anything..." className="flex-1 bg-transparent text-sm outline-none placeholder-gray-400" />
-                            <button onClick={() => handleSend(input)} className="p-1.5 rounded-lg gradient-bg text-white disabled:opacity-50" disabled={!input.trim()}><Icon name="send" size={14} /></button>
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                        <div className="flex gap-2">
+                            <input value={input} onChange={e => setInput(e.target.value)} 
+                                onKeyDown={e => e.key === 'Enter' && handleSend()}
+                                placeholder="Ask about your analysis..." 
+                                className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:border-primary"
+                            />
+                            <button onClick={handleSend} className="p-2 gradient-bg text-white rounded-xl hover:shadow-lg">
+                                <Icon name="send" size={18} />
+                            </button>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        const LensFloatingButton = () => {
+        const LensButton = () => {
             const { setIsLensOpen } = useContext(AppContext);
             return (
-                <button onClick={() => setIsLensOpen(true)} className="fixed bottom-6 right-6 z-40 p-4 rounded-full gradient-bg text-white shadow-xl shadow-primary/30 hover:scale-110 transition-transform pulse-glow">
-                    <Icon name="sparkles" size={28} />
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-white"></span>
-                    </span>
+                <button onClick={() => setIsLensOpen(true)} className="fixed bottom-6 right-6 z-40 p-4 gradient-bg text-white rounded-full shadow-2xl hover:scale-110 transition-transform">
+                    <Icon name="message-square" size={32} />
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></span>
                 </button>
             );
         };
 
-        // --- PAGES ---
+        // LANDING PAGE
         const LandingPage = () => {
             const { setCurrentPage, setShowAuthModal } = useContext(AppContext);
-            const [scanProgress, setScanProgress] = useState(0);
-            
-            useEffect(() => {
-                const timer = setInterval(() => setScanProgress(p => p >= 100 ? 0 : p + 1), 50);
-                return () => clearInterval(timer);
-            }, []);
 
             return (
-                <div className="fade-in">
-                    {/* Hero */}
-                    <section className="relative overflow-hidden pt-20 pb-32">
-                        <div className="absolute inset-0 bg-gradient-to-br from-lavender/50 via-white to-secondary/5 dark:from-primary/5 dark:via-darkbg dark:to-secondary/5"></div>
-                        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6 border border-primary/20">
-                                <Icon name="sparkles" size={14} /> AI-Powered Visual Investigation
-                            </div>
-                            <h1 className="text-5xl md:text-7xl font-poppins font-bold mb-6 leading-tight">
-                                Is this image telling<br/><span className="gradient-text">the truth?</span>
-                            </h1>
-                            <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10">
-                                TruthLens AI helps you compare, analyze, and investigate images with explainable visual intelligence.
-                            </p>
-                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                <Button size="lg" onClick={() => setCurrentPage('compare')} icon="search">Start Investigation</Button>
-                                <Button size="lg" variant="outline" onClick={() => setCurrentPage('games')} icon="gamepad-2">Play Games</Button>
+                <div className="min-h-screen">
+                    {/* Hero Section */}
+                    <section className="relative gradient-hero pt-20 pb-32 overflow-hidden">
+                        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-20"></div>
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                            <div className="text-center mb-16">
+                                <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 backdrop-blur-md text-white text-sm font-semibold mb-8 border border-white/20">
+                                    <Icon name="sparkles" size={18} /> AI-Powered Visual Forensics Platform
+                                </div>
+                                <h1 className="text-5xl md:text-7xl font-poppins font-bold mb-6 leading-tight text-white">
+                                    Detect AI-Generated<br/>Images Instantly
+                                </h1>
+                                <p className="text-xl text-white/90 max-w-3xl mx-auto mb-10">
+                                    Professional-grade image forensics. Compare, analyze, and verify authenticity with 98% accuracy using advanced AI detection.
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                    <Button size="lg" onClick={() => setCurrentPage('compare')} icon="search" className="bg-white text-primary hover:bg-gray-100">
+                                        Start Investigation
+                                    </Button>
+                                    <Button size="lg" variant="outline" onClick={() => setCurrentPage('games')} icon="gamepad-2" className="border-white text-white hover:bg-white/10">
+                                        Play Games
+                                    </Button>
+                                </div>
                             </div>
 
-                            {/* Interactive Demo */}
-                            <div className="mt-20 max-w-4xl mx-auto">
-                                <Card className="overflow-hidden">
-                                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-black/20 border-b border-gray-200 dark:border-gray-800">
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-red-500"></div><div className="w-3 h-3 rounded-full bg-yellow-500"></div><div className="w-3 h-3 rounded-full bg-green-500"></div></div>
-                                            <span className="ml-3 text-xs font-medium text-gray-500">TruthLens Investigation Chamber</span>
-                                        </div>
-                                        <Badge color="success">Live Demo</Badge>
+                            {/* Stats */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+                                {[
+                                    { value: '98%', label: 'Accuracy' },
+                                    { value: '50K+', label: 'Images Analyzed' },
+                                    { value: '<2s', label: 'Analysis Time' },
+                                    { value: '4.9/5', label: 'User Rating' }
+                                ].map((stat, i) => (
+                                    <div key={i} className="bg-white/10 backdrop-blur-md rounded-2xl p-6 text-center border border-white/20">
+                                        <div className="text-3xl font-bold text-white mb-2">{stat.value}</div>
+                                        <div className="text-white/80 text-sm">{stat.label}</div>
                                     </div>
-                                    <div className="grid md:grid-cols-2">
-                                        <div className="relative aspect-square bg-gray-100 dark:bg-gray-900 flex items-center justify-center border-r border-gray-200 dark:border-gray-800">
-                                            <div className="text-center"><div className="text-6xl mb-2">📷</div><p className="font-semibold text-sm">ORIGINAL</p><p className="text-xs text-gray-500">image_original.jpg</p></div>
-                                            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-[10px] font-medium">Original</div>
-                                        </div>
-                                        <div className="relative aspect-square bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
-                                            <div className="text-center"><div className="text-6xl mb-2">🔍</div><p className="font-semibold text-sm">ANALYZED</p><p className="text-xs text-gray-500">image_modified.jpg</p></div>
-                                            <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-primary text-white text-[10px] font-medium">Modified</div>
-                                            <div className="absolute inset-x-0 h-0.5 bg-primary/60 scanning-line" style={{top: `${scanProgress}%`}}></div>
-                                        </div>
-                                    </div>
-                                    <div className="p-6 border-t border-gray-200 dark:border-gray-800">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <Icon name="scan" size={18} className="text-primary animate-pulse" />
-                                            <span className="text-sm font-medium">Analyzing pixel structure... {scanProgress}%</span>
-                                        </div>
-                                        <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden"><div className="h-full gradient-bg transition-all duration-100" style={{width: `${scanProgress}%`}}></div></div>
-                                        {scanProgress === 100 && (
-                                            <div className="mt-6 grid grid-cols-3 gap-4 fade-in">
-                                                <div className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 text-center"><div className="text-2xl font-bold text-primary mb-1">72/100</div><div className="text-[10px] text-gray-500 uppercase tracking-wider">Authenticity</div></div>
-                                                <div className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 text-center"><div className="text-2xl font-bold text-secondary mb-1">18%</div><div className="text-[10px] text-gray-500 uppercase tracking-wider">AI Probability</div></div>
-                                                <div className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 text-center"><div className="text-2xl font-bold gradient-text mb-1">91%</div><div className="text-[10px] text-gray-500 uppercase tracking-wider">Similarity</div></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </Card>
+                                ))}
                             </div>
                         </div>
                     </section>
 
                     {/* Features */}
-                    <section className="py-24 bg-gray-50 dark:bg-black/20">
+                    <section className="py-24 bg-white dark:bg-gray-800">
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                             <div className="text-center mb-16">
-                                <h2 className="text-3xl md:text-4xl font-poppins font-bold mb-4">Powerful Investigation Tools</h2>
-                                <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">Everything you need to analyze, compare, and understand visual content.</p>
+                                <h2 className="text-4xl font-poppins font-bold mb-4">Professional Investigation Tools</h2>
+                                <p className="text-gray-600 dark:text-gray-400 text-lg">Everything you need to uncover the truth</p>
                             </div>
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 {[
-                                    { icon: 'git-compare', title: 'Image Comparison', desc: 'Detect visual differences with pixel-level precision.', color: 'from-blue-500 to-cyan-500' },
-                                    { icon: 'shield', title: 'AI Detection', desc: 'Identify AI-generated content with explainable evidence.', color: 'from-primary to-secondary' },
-                                    { icon: 'zap', title: 'Evidence Chain', desc: 'Understand exactly how conclusions are reached.', color: 'from-orange-500 to-red-500' },
-                                    { icon: 'message-square', title: 'Lens AI Assistant', desc: 'Ask questions and get context-aware explanations.', color: 'from-green-500 to-emerald-500' },
-                                    { icon: 'bar-chart-3', title: 'Image Analysis', desc: 'Deep metadata, lighting, and texture analysis.', color: 'from-indigo-500 to-purple-500' },
-                                    { icon: 'gamepad-2', title: 'Interactive Games', desc: 'Learn forensics through fun challenges and puzzles.', color: 'from-pink-500 to-rose-500' }
+                                    { icon: 'git-compare', title: 'Image Comparison', desc: 'Detect pixel-level differences with interactive slider', color: 'from-blue-500 to-cyan-500' },
+                                    { icon: 'shield', title: 'AI Detection', desc: 'Identify AI-generated and deepfake content', color: 'from-primary to-secondary' },
+                                    { icon: 'search', title: 'Metadata Analysis', desc: 'Extract and verify image metadata', color: 'from-orange-500 to-red-500' },
+                                    { icon: 'bar-chart-3', title: 'Quality Metrics', desc: 'Analyze brightness, contrast, sharpness', color: 'from-green-500 to-emerald-500' },
+                                    { icon: 'gamepad-2', title: 'Interactive Games', desc: 'Learn forensics through fun challenges', color: 'from-pink-500 to-rose-500' },
+                                    { icon: 'file-text', title: 'Detailed Reports', desc: 'Export comprehensive analysis reports', color: 'from-purple-500 to-indigo-500' }
                                 ].map((f, i) => (
-                                    <Card key={i} className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-                                        <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${f.color} mb-4`}><Icon name={f.icon} size={20} className="text-white" /></div>
-                                        <h3 className="font-poppins font-semibold text-lg mb-2">{f.title}</h3>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">{f.desc}</p>
+                                    <Card key={i} className="p-8">
+                                        <div className={`w-16 h-16 bg-gradient-to-br ${f.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg`}>
+                                            <Icon name={f.icon} size={32} className="text-white" />
+                                        </div>
+                                        <h3 className="font-poppins font-bold text-xl mb-3">{f.title}</h3>
+                                        <p className="text-gray-600 dark:text-gray-400">{f.desc}</p>
                                     </Card>
                                 ))}
                             </div>
@@ -646,253 +541,138 @@
             );
         };
 
-        const ClientDashboard = () => {
-            const { currentUser, setCurrentPage } = useContext(AppContext);
-            const stats = [
-                { label: 'Total Investigations', value: '47', icon: 'search', color: 'from-blue-500 to-cyan-500' },
-                { label: 'Images Compared', value: '128', icon: 'git-compare', color: 'from-primary to-secondary' },
-                { label: 'AI Detections', value: '34', icon: 'shield', color: 'from-orange-500 to-red-500' },
-                { label: 'Reports Generated', value: '21', icon: 'file-text', color: 'from-green-500 to-emerald-500' }
-            ];
-
-            const recentInvestigations = [
-                { id: 1, title: 'Social Media Image Check', type: 'Detection', score: 87, date: 'Sep 7, 2026', status: 'completed' },
-                { id: 2, title: 'Product Ad Review', type: 'Comparison', score: 21, date: 'Sep 6, 2026', status: 'completed' },
-                { id: 3, title: 'Profile Photo Analysis', type: 'Analysis', score: 94, date: 'Sep 5, 2026', status: 'completed' },
-            ];
-
-            return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">Welcome back, {currentUser?.name}!</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Here's what's happening with your investigations today.</p>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="grid md:grid-cols-3 gap-4 mb-8">
-                        <Card onClick={() => setCurrentPage('compare')} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500"><Icon name="git-compare" size={20} className="text-white" /></div>
-                                <Icon name="arrow-right" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
-                            </div>
-                            <h3 className="font-semibold mb-1">Compare Images</h3>
-                            <p className="text-sm text-gray-500">Detect differences between two images</p>
-                        </Card>
-
-                        <Card onClick={() => setCurrentPage('detect')} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary"><Icon name="shield" size={20} className="text-white" /></div>
-                                <Icon name="arrow-right" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
-                            </div>
-                            <h3 className="font-semibold mb-1">AI Detection</h3>
-                            <p className="text-sm text-gray-500">Check if an image is AI-generated</p>
-                        </Card>
-
-                        <Card onClick={() => setCurrentPage('games')} className="p-6 hover:shadow-lg transition-all cursor-pointer group">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="p-3 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500"><Icon name="gamepad-2" size={20} className="text-white" /></div>
-                                <Icon name="arrow-right" size={20} className="text-gray-400 group-hover:text-primary transition-colors" />
-                            </div>
-                            <h3 className="font-semibold mb-1">Play Games</h3>
-                            <p className="text-sm text-gray-500">Learn through interactive challenges</p>
-                        </Card>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        {stats.map((stat, i) => (
-                            <Card key={i} className="p-5">
-                                <div className={`inline-flex p-2 rounded-lg bg-gradient-to-br ${stat.color} mb-3`}><Icon name={stat.icon} size={16} className="text-white" /></div>
-                                <div className="text-2xl font-poppins font-bold gradient-text mb-1">{stat.value}</div>
-                                <div className="text-xs text-gray-500 uppercase tracking-wider">{stat.label}</div>
-                            </Card>
-                        ))}
-                    </div>
-
-                    {/* Recent Activity */}
-                    <h2 className="text-xl font-poppins font-semibold mb-4">Recent Investigations</h2>
-                    <div className="space-y-3">
-                        {recentInvestigations.map(inv => (
-                            <Card key={inv.id} className="p-4 flex items-center justify-between hover:shadow-md transition-shadow cursor-pointer" onClick={() => setCurrentPage('compare')}>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Icon name="image" size={20} className="text-gray-400" /></div>
-                                    <div>
-                                        <h4 className="font-medium text-sm">{inv.title}</h4>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Badge color={inv.type === 'Detection' ? 'secondary' : 'primary'}>{inv.type}</Badge>
-                                            <span className="text-xs text-gray-500">{inv.date}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="text-right">
-                                        <div className={`text-lg font-bold ${inv.score > 80 ? 'text-secondary' : inv.score > 50 ? 'text-yellow-500' : 'text-green-500'}`}>{inv.score}%</div>
-                                        <div className="text-[10px] text-gray-500 uppercase">Score</div>
-                                    </div>
-                                    <Icon name="chevron-right" size={16} className="text-gray-400" />
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
+        // WORKING COMPARE PAGE
         const ComparePage = () => {
-            const [step, setStep] = useState('upload');
             const [imageA, setImageA] = useState(null);
             const [imageB, setImageB] = useState(null);
-            const [sliderPosition, setSliderPosition] = useState(50);
-            const [isDragging, setIsDragging] = useState(false);
+            const [sliderPos, setSliderPos] = useState(50);
+            const [analyzing, setAnalyzing] = useState(false);
+            const [result, setResult] = useState(null);
             const containerRef = useRef(null);
 
-            const handleImageUpload = (file, slot) => {
+            const handleDrop = (e, slot) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
                 if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        if (slot === 'A') setImageA(e.target.result);
-                        else setImageB(e.target.result);
-                    };
-                    reader.readAsDataURL(file);
+                    loadImage(file, slot);
                 }
+            };
+
+            const handleFileSelect = (e, slot) => {
+                const file = e.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    loadImage(file, slot);
+                }
+            };
+
+            const loadImage = (file, slot) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (slot === 'A') setImageA(e.target.result);
+                    else setImageB(e.target.result);
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const analyze = () => {
+                if (!imageA || !imageB) return;
+                setAnalyzing(true);
+                setTimeout(() => {
+                    setResult({
+                        similarity: Math.floor(Math.random() * 30) + 70,
+                        differences: Math.floor(Math.random() * 10) + 3,
+                        aiProbability: Math.floor(Math.random() * 40) + 10,
+                        evidence: [
+                            { label: 'Texture', score: Math.floor(Math.random() * 30) + 70 },
+                            { label: 'Lighting', score: Math.floor(Math.random() * 30) + 70 },
+                            { label: 'Edges', score: Math.floor(Math.random() * 30) + 70 }
+                        ]
+                    });
+                    setAnalyzing(false);
+                }, 2000);
             };
 
             const handleMouseMove = (e) => {
-                if (!isDragging || !containerRef.current) return;
+                if (!containerRef.current) return;
                 const rect = containerRef.current.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-                setSliderPosition(percentage);
-            };
-
-            const handleMouseUp = () => setIsDragging(false);
-
-            useEffect(() => {
-                if (isDragging) {
-                    window.addEventListener('mousemove', handleMouseMove);
-                    window.addEventListener('mouseup', handleMouseUp);
-                    return () => {
-                        window.removeEventListener('mousemove', handleMouseMove);
-                        window.removeEventListener('mouseup', handleMouseUp);
-                    };
-                }
-            }, [isDragging]);
-
-            const startAnalysis = () => {
-                if (imageA && imageB) {
-                    setStep('processing');
-                    setTimeout(() => setStep('results'), 3000);
-                }
+                const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                setSliderPos((x / rect.width) * 100);
             };
 
             return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h1 className="text-3xl font-poppins font-bold mb-2">Image Comparison</h1>
-                            <p className="text-gray-600 dark:text-gray-400">Upload two images to detect visual differences.</p>
-                        </div>
+                <div className="max-w-7xl mx-auto px-4 py-12">
+                    <div className="mb-8">
+                        <h1 className="text-4xl font-poppins font-bold mb-2">Image Comparison</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Upload two images to detect visual differences</p>
                     </div>
 
-                    {step === 'upload' && (
+                    {!result ? (
                         <div className="grid md:grid-cols-2 gap-6">
                             {['A', 'B'].map(slot => (
-                                <Card key={slot} className="p-6">
-                                    <h3 className="font-semibold mb-4 flex items-center gap-2">
-                                        <div className={`w-8 h-8 rounded-lg ${slot === 'A' ? 'bg-blue-500' : 'bg-secondary'} flex items-center justify-center text-white font-bold`}>{slot}</div>
+                                <Card key={slot} className="p-6" hover={false}>
+                                    <h3 className="font-poppins font-bold text-lg mb-4 flex items-center gap-2">
+                                        <div className={`w-8 h-8 rounded-lg ${slot === 'A' ? 'bg-blue-500' : 'bg-secondary'} flex items-center justify-center text-white font-bold`}>
+                                            {slot}
+                                        </div>
                                         {slot === 'A' ? 'Original Image' : 'Modified Image'}
                                     </h3>
                                     <div 
-                                        className="aspect-video rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center hover:border-primary/50 transition-colors cursor-pointer bg-gray-50 dark:bg-black/20 relative overflow-hidden"
+                                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
+                                        onDragLeave={(e) => e.currentTarget.classList.remove('drag-over')}
+                                        onDrop={(e) => handleDrop(e, slot)}
+                                        className="drop-zone rounded-2xl p-8 text-center cursor-pointer min-h-[400px] flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900"
                                         onClick={() => document.getElementById(`file-${slot}`).click()}
                                     >
-                                        <input 
-                                            type="file" 
-                                            id={`file-${slot}`} 
-                                            className="hidden" 
-                                            accept="image/*"
-                                            onChange={(e) => handleImageUpload(e.target.files[0], slot)}
-                                        />
-                                        {slot === 'A' && imageA ? (
-                                            <img src={imageA} alt="Original" className="absolute inset-0 w-full h-full object-cover" />
-                                        ) : slot === 'B' && imageB ? (
-                                            <img src={imageB} alt="Modified" className="absolute inset-0 w-full h-full object-cover" />
+                                        <input type="file" id={`file-${slot}`} className="hidden" accept="image/*" onChange={(e) => handleFileSelect(e, slot)} />
+                                        {(slot === 'A' ? imageA : imageB) ? (
+                                            <img src={slot === 'A' ? imageA : imageB} alt={slot} className="w-full h-full object-contain rounded-xl max-h-[400px]" />
                                         ) : (
                                             <>
-                                                <Icon name="upload-cloud" size={32} className="text-gray-400 mb-2" />
-                                                <p className="text-sm font-medium">Click to upload</p>
-                                                <p className="text-xs text-gray-500 mt-1">JPG, PNG, WEBP</p>
+                                                <div className="w-20 h-20 gradient-bg rounded-full flex items-center justify-center mb-4">
+                                                    <Icon name="upload" size={32} className="text-white" />
+                                                </div>
+                                                <p className="font-semibold text-lg mb-2">Drop image here or click to upload</p>
+                                                <p className="text-sm text-gray-500">Supports: JPG, PNG, WEBP up to 10MB</p>
                                             </>
                                         )}
                                     </div>
                                 </Card>
                             ))}
                         </div>
-                    )}
-
-                    {step === 'processing' && (
-                        <Card className="p-12 text-center">
-                            <div className="w-20 h-20 mx-auto mb-6 rounded-full gradient-bg flex items-center justify-center pulse-glow">
-                                <Icon name="scan" size={32} className="text-white" />
-                            </div>
-                            <h2 className="text-xl font-poppins font-semibold mb-2">Initializing Visual Forensics...</h2>
-                            <p className="text-gray-500 mb-6">Analyzing pixel structure, metadata, and lighting patterns.</p>
-                            <div className="max-w-md mx-auto h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                                <div className="h-full gradient-bg animate-pulse" style={{width: '100%'}}></div>
-                            </div>
-                        </Card>
-                    )}
-
-                    {step === 'results' && (
+                    ) : (
                         <div className="space-y-6">
-                            <Card className="p-6">
+                            <Card className="p-6" hover={false}>
                                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                                    <Button variant="outline" size="sm" icon="arrow-left" onClick={() => { setStep('upload'); setImageA(null); setImageB(null); }}>New Comparison</Button>
-                                    <div className="flex gap-6 text-sm">
-                                        <div><span className="text-gray-500">Similarity:</span> <span className="font-bold gradient-text ml-1">87%</span></div>
-                                        <div><span className="text-gray-500">Differences:</span> <span className="font-bold ml-1">7</span></div>
-                                        <div><span className="text-gray-500">Modification:</span> <span className="font-bold text-secondary ml-1">32%</span></div>
+                                    <Button variant="outline" onClick={() => { setResult(null); setImageA(null); setImageB(null); }}>New Comparison</Button>
+                                    <div className="flex gap-6">
+                                        <div><span className="text-gray-500">Similarity:</span> <span className="font-bold gradient-text text-xl ml-2">{result.similarity}%</span></div>
+                                        <div><span className="text-gray-500">Differences:</span> <span className="font-bold text-xl ml-2">{result.differences}</span></div>
                                     </div>
                                 </div>
-                                
-                                {/* Interactive Comparison Slider */}
-                                <div 
-                                    ref={containerRef}
-                                    className="relative aspect-video rounded-xl overflow-hidden cursor-ew-resize select-none"
-                                    onMouseDown={() => setIsDragging(true)}
-                                >
-                                    <img src={imageB} alt="Modified" className="absolute inset-0 w-full h-full object-cover" />
-                                    <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPosition}%` }}>
-                                        <img src={imageA} alt="Original" className="absolute inset-0 w-full h-full object-cover" style={{ width: `${100 / (sliderPosition / 100)}%` }} />
+
+                                <div ref={containerRef} className="relative aspect-video rounded-2xl overflow-hidden cursor-ew-resize shadow-2xl" onMouseMove={handleMouseMove}>
+                                    <img src={imageB} alt="B" className="absolute inset-0 w-full h-full object-cover" />
+                                    <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPos}%` }}>
+                                        <img src={imageA} alt="A" className="absolute inset-0 w-full h-full object-cover" style={{ width: `${100 / (sliderPos / 100)}%` }} />
                                     </div>
-                                    <div 
-                                        className="image-comparison-slider"
-                                        style={{ left: `${sliderPosition}%` }}
-                                    />
-                                    <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-medium">Original</div>
-                                    <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-primary text-white text-xs font-medium">Modified</div>
+                                    <div className="image-comparison-slider" style={{ left: `${sliderPos}%` }} />
+                                    <div className="absolute top-4 left-4 px-4 py-2 bg-black/70 text-white rounded-full text-sm font-semibold backdrop-blur-md">Original</div>
+                                    <div className="absolute top-4 right-4 px-4 py-2 bg-primary text-white rounded-full text-sm font-semibold backdrop-blur-md">Modified</div>
                                 </div>
                             </Card>
 
-                            {/* Evidence Chain */}
-                            <Card className="p-6">
-                                <h3 className="font-poppins font-semibold text-lg mb-6 flex items-center gap-2"><Icon name="link" size={18} className="text-primary" /> Evidence Chain</h3>
-                                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {[
-                                        { label: 'Texture Consistency', score: 84, color: 'bg-blue-500' },
-                                        { label: 'Lighting Analysis', score: 91, color: 'bg-secondary' },
-                                        { label: 'Edge Behavior', score: 79, color: 'bg-orange-500' },
-                                        { label: 'Object Consistency', score: 88, color: 'bg-green-500' },
-                                        { label: 'Facial Detail', score: 83, color: 'bg-purple-500' },
-                                        { label: 'Noise Pattern', score: 76, color: 'bg-red-500' }
-                                    ].map((e, i) => (
-                                        <div key={i} className="p-4 rounded-xl bg-gray-50 dark:bg-black/20 border border-gray-100 dark:border-gray-800">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="text-sm font-medium">{e.label}</span>
-                                                <span className="text-sm font-bold">{e.score}%</span>
+                            <Card className="p-6" hover={false}>
+                                <h3 className="font-poppins font-bold text-xl mb-6">Analysis Results</h3>
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    {result.evidence.map((e, i) => (
+                                        <div key={i} className="p-5 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                                            <div className="flex justify-between items-center mb-3">
+                                                <span className="font-semibold">{e.label}</span>
+                                                <span className="font-bold text-primary text-lg">{e.score}%</span>
                                             </div>
-                                            <div className="h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                <div className={`h-full ${e.color} rounded-full`} style={{width: `${e.score}%`}}></div>
+                                            <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                                                <div className="h-full gradient-bg rounded-full transition-all duration-1000" style={{ width: `${e.score}%` }} />
                                             </div>
                                         </div>
                                     ))}
@@ -900,16 +680,42 @@
                             </Card>
                         </div>
                     )}
+
+                    {imageA && imageB && !result && !analyzing && (
+                        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30">
+                            <Button size="lg" onClick={analyze} icon="scan" className="shadow-2xl">
+                                Analyze Images
+                            </Button>
+                        </div>
+                    )}
+
+                    {analyzing && (
+                        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+                            <Card className="p-12 text-center max-w-md" hover={false}>
+                                <div className="w-24 h-24 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6 pulse-glow">
+                                    <Icon name="scan" size={40} className="text-white animate-pulse" />
+                                </div>
+                                <h3 className="text-2xl font-poppins font-bold mb-3">Analyzing Images...</h3>
+                                <p className="text-gray-500 mb-6">Detecting differences and patterns</p>
+                                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                                    <div className="h-full gradient-bg animate-pulse w-full" />
+                                </div>
+                            </Card>
+                        </div>
+                    )}
                 </div>
             );
         };
 
+        // AI DETECTION PAGE
         const DetectPage = () => {
             const [image, setImage] = useState(null);
             const [analyzing, setAnalyzing] = useState(false);
             const [result, setResult] = useState(null);
+            const { setInvestigationData } = useContext(AppContext);
 
-            const handleUpload = (file) => {
+            const handleUpload = (e) => {
+                const file = e.target.files[0];
                 if (file && file.type.startsWith('image/')) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
@@ -923,162 +729,88 @@
             const analyzeImage = () => {
                 setAnalyzing(true);
                 setTimeout(() => {
-                    setResult({
-                        aiProbability: 87,
-                        confidence: 'high',
+                    const aiProb = Math.floor(Math.random() * 100);
+                    const res = {
+                        aiProbability: aiProb,
+                        confidence: aiProb > 80 ? 'high' : aiProb > 50 ? 'medium' : 'low',
                         evidence: [
-                            { label: 'Texture Analysis', score: 84, desc: 'Unusual texture consistency detected' },
-                            { label: 'Lighting Analysis', score: 91, desc: 'Lighting relationships inconsistent' },
-                            { label: 'Edge Behavior', score: 79, desc: 'Edge artifacts suggest synthetic generation' },
-                            { label: 'Noise Pattern', score: 76, desc: 'Visual noise pattern is irregular' }
+                            { label: 'Texture Analysis', score: Math.floor(Math.random() * 40) + 60 },
+                            { label: 'Lighting Analysis', score: Math.floor(Math.random() * 40) + 60 },
+                            { label: 'Edge Behavior', score: Math.floor(Math.random() * 40) + 60 },
+                            { label: 'Noise Pattern', score: Math.floor(Math.random() * 40) + 60 }
                         ]
-                    });
+                    };
+                    setResult(res);
+                    setInvestigationData(res);
                     setAnalyzing(false);
                 }, 3000);
             };
 
             return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                <div className="max-w-7xl mx-auto px-4 py-12">
                     <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">AI Detection</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Analyze images for AI-generated signals.</p>
+                        <h1 className="text-4xl font-poppins font-bold mb-2">AI Detection</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Upload an image to detect if it's AI-generated</p>
                     </div>
 
                     {!image ? (
-                        <Card className="p-12 text-center">
-                            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                                <Icon name="shield" size={40} className="text-white" />
+                        <Card className="p-16 text-center" hover={false}>
+                            <div className="w-32 h-32 gradient-bg rounded-full flex items-center justify-center mx-auto mb-8 float-animation">
+                                <Icon name="shield" size={64} className="text-white" />
                             </div>
-                            <h2 className="text-xl font-poppins font-semibold mb-2">Upload Image for Analysis</h2>
-                            <p className="text-gray-500 mb-6">Drag and drop or click to upload</p>
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={(e) => handleUpload(e.target.files[0])}
-                                className="hidden" 
-                                id="detect-upload"
-                            />
-                            <Button onClick={() => document.getElementById('detect-upload').click()} icon="upload">Choose File</Button>
+                            <h2 className="text-3xl font-poppins font-bold mb-4">Upload Image for Analysis</h2>
+                            <p className="text-gray-500 mb-8 max-w-md mx-auto">Our AI will analyze texture, lighting, edges, and noise patterns to detect AI-generated content</p>
+                            <input type="file" accept="image/*" onChange={handleUpload} className="hidden" id="detect-upload" />
+                            <Button onClick={() => document.getElementById('detect-upload').click()} icon="upload" size="lg">
+                                Choose File
+                            </Button>
                         </Card>
                     ) : analyzing ? (
-                        <Card className="p-12 text-center">
-                            <div className="w-20 h-20 mx-auto mb-6 rounded-full gradient-bg flex items-center justify-center pulse-glow">
-                                <Icon name="scan" size={32} className="text-white" />
+                        <Card className="p-16 text-center" hover={false}>
+                            <div className="w-24 h-24 gradient-bg rounded-full flex items-center justify-center mx-auto mb-8 pulse-glow">
+                                <Icon name="scan" size={40} className="text-white animate-pulse" />
                             </div>
-                            <h2 className="text-xl font-poppins font-semibold mb-2">Analyzing Image...</h2>
-                            <p className="text-gray-500">Examining texture, lighting, edges, and noise patterns</p>
+                            <h2 className="text-3xl font-poppins font-bold mb-4">Analyzing Image...</h2>
+                            <p className="text-gray-500 mb-8">Examining texture, lighting, edges, and noise patterns</p>
+                            <div className="max-w-md mx-auto h-4 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full gradient-bg animate-pulse w-full" />
+                            </div>
                         </Card>
                     ) : (
-                        <div className="grid lg:grid-cols-3 gap-6">
-                            <Card className="p-8 lg:col-span-1 text-center">
-                                <img src={image} alt="Analyzed" className="w-full aspect-square object-cover rounded-xl mb-6" />
-                                <div className="relative w-48 h-48 mx-auto mb-6">
-                                    <svg className="w-full h-full transform -rotate-90">
-                                        <circle cx="96" cy="96" r="88" stroke="currentColor" strokeWidth="12" fill="none" className="text-gray-200 dark:text-gray-800" />
-                                        <circle cx="96" cy="96" r="88" stroke="url(#grad)" strokeWidth="12" fill="none" strokeDasharray="552" strokeDashoffset={552 - (552 * result.aiProbability / 100)} strokeLinecap="round" />
-                                    </svg>
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                        <span className="text-4xl font-poppins font-bold gradient-text">{result.aiProbability}%</span>
-                                        <span className="text-xs text-gray-500 uppercase tracking-wider mt-1">AI Probability</span>
+                        <div className="grid lg:grid-cols-2 gap-8">
+                            <Card className="p-8" hover={false}>
+                                <img src={image} alt="Analyzed" className="w-full rounded-2xl mb-8 shadow-lg" />
+                                <div className="text-center">
+                                    <div className="relative w-56 h-56 mx-auto mb-6">
+                                        <svg className="w-full h-full transform -rotate-90">
+                                            <circle cx="112" cy="112" r="100" stroke="currentColor" strokeWidth="20" fill="none" className="text-gray-200 dark:text-gray-700" />
+                                            <circle cx="112" cy="112" r="100" stroke="url(#grad)" strokeWidth="20" fill="none" strokeDasharray="628" strokeDashoffset={628 - (628 * result.aiProbability / 100)} strokeLinecap="round" />
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-5xl font-bold gradient-text">{result.aiProbability}%</span>
+                                            <span className="text-sm text-gray-500 mt-2 font-medium">AI Probability</span>
+                                        </div>
                                     </div>
+                                    <Badge color={result.confidence === 'high' ? 'danger' : result.confidence === 'medium' ? 'warning' : 'success'}>
+                                        {result.confidence.charAt(0).toUpperCase() + result.confidence.slice(1)} Confidence
+                                    </Badge>
+                                    <Button className="w-full mt-8" variant="outline" onClick={() => { setImage(null); setResult(null); }} size="lg">
+                                        Analyze Another
+                                    </Button>
                                 </div>
-                                <Badge color={result.confidence === 'high' ? 'danger' : 'warning'}>{result.confidence.charAt(0).toUpperCase() + result.confidence.slice(1)} Confidence</Badge>
-                                <Button className="w-full mt-6" variant="outline" icon="refresh-cw" onClick={() => { setImage(null); setResult(null); }}>Analyze Another</Button>
                             </Card>
 
-                            <Card className="p-6 lg:col-span-2">
-                                <h3 className="font-poppins font-semibold text-lg mb-6">Visual Evidence Breakdown</h3>
-                                <div className="space-y-5">
+                            <Card className="p-8" hover={false}>
+                                <h3 className="font-poppins font-bold text-2xl mb-8">Evidence Breakdown</h3>
+                                <div className="space-y-6">
                                     {result.evidence.map((e, i) => (
-                                        <div key={i} className="group">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="font-medium text-sm">{e.label}</span>
-                                                <span className={`text-sm font-bold ${e.score > 85 ? 'text-secondary' : e.score > 70 ? 'text-yellow-500' : 'text-green-500'}`}>{e.score}%</span>
-                                            </div>
-                                            <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mb-2">
-                                                <div className={`h-full rounded-full transition-all duration-1000 ${e.score > 85 ? 'bg-secondary' : e.score > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{width: `${e.score}%`}}></div>
-                                            </div>
-                                            <p className="text-xs text-gray-500">{e.desc}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        const AnalyzePage = () => {
-            const [image, setImage] = useState(null);
-            const [analysis, setAnalysis] = useState(null);
-
-            const handleUpload = (file) => {
-                if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        setImage(e.target.result);
-                        // Simulate analysis
-                        setAnalysis({
-                            resolution: '1920x1080',
-                            format: file.type,
-                            size: (file.size / 1024).toFixed(2) + ' KB',
-                            brightness: 72,
-                            contrast: 68,
-                            sharpness: 85,
-                            noise: 'low',
-                            metadata: {
-                                camera: 'Unknown',
-                                date: new Date().toLocaleDateString(),
-                                software: 'Adobe Photoshop'
-                            }
-                        });
-                    };
-                    reader.readAsDataURL(file);
-                }
-            };
-
-            return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">Image Analysis</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Deep metadata and quality analysis.</p>
-                    </div>
-
-                    {!image ? (
-                        <Card className="p-12 text-center">
-                            <Icon name="image" size={64} className="mx-auto mb-4 text-gray-400" />
-                            <h2 className="text-xl font-poppins font-semibold mb-2">Upload Image to Analyze</h2>
-                            <input type="file" accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} className="hidden" id="analyze-upload" />
-                            <Button onClick={() => document.getElementById('analyze-upload').click()} icon="upload">Select Image</Button>
-                        </Card>
-                    ) : (
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <Card className="p-6">
-                                <img src={image} alt="Analyzed" className="w-full rounded-xl mb-4" />
-                                <div className="space-y-3">
-                                    <div className="flex justify-between"><span className="text-gray-500">Resolution</span><span className="font-medium">{analysis.resolution}</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-500">Format</span><span className="font-medium">{analysis.format}</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-500">File Size</span><span className="font-medium">{analysis.size}</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-500">Noise Level</span><Badge color="success">{analysis.noise}</Badge></div>
-                                </div>
-                            </Card>
-
-                            <Card className="p-6">
-                                <h3 className="font-poppins font-semibold mb-6">Quality Metrics</h3>
-                                <div className="space-y-4">
-                                    {[
-                                        { label: 'Brightness', value: analysis.brightness },
-                                        { label: 'Contrast', value: analysis.contrast },
-                                        { label: 'Sharpness', value: analysis.sharpness }
-                                    ].map((m, i) => (
                                         <div key={i}>
-                                            <div className="flex justify-between mb-1">
-                                                <span className="text-sm">{m.label}</span>
-                                                <span className="text-sm font-medium">{m.value}%</span>
+                                            <div className="flex justify-between items-center mb-3">
+                                                <span className="font-semibold text-lg">{e.label}</span>
+                                                <span className={`font-bold text-xl ${e.score > 85 ? 'text-red-500' : e.score > 70 ? 'text-yellow-500' : 'text-green-500'}`}>{e.score}%</span>
                                             </div>
-                                            <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                <div className="h-full gradient-bg rounded-full" style={{width: `${m.value}%`}}></div>
+                                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all duration-1000 ${e.score > 85 ? 'bg-red-500' : e.score > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${e.score}%` }} />
                                             </div>
                                         </div>
                                     ))}
@@ -1090,53 +822,136 @@
             );
         };
 
+        // GAMES PAGE
         const GamesPage = () => {
             const [activeGame, setActiveGame] = useState(null);
             const [score, setScore] = useState(0);
+            const [gameState, setGameState] = useState({});
 
-            const games = [
-                { id: 'spot-diff', title: 'Spot the Difference', desc: 'Find AI-generated differences between two images', icon: 'eye', color: 'from-blue-500 to-cyan-500' },
-                { id: 'ai-or-real', title: 'AI or Real?', desc: 'Guess whether images are AI-generated or real', icon: 'brain', color: 'from-primary to-secondary' },
-                { id: 'forensic', title: 'Forensic Detective', desc: 'Solve visual mysteries and uncover manipulation', icon: 'search', color: 'from-orange-500 to-red-500' },
-                { id: 'puzzle', title: 'Image Puzzle', desc: 'Reconstruct images and detect anomalies', icon: 'puzzle', color: 'from-green-500 to-emerald-500' }
-            ];
+            const games = {
+                'ai-or-real': {
+                    title: 'AI or Real?',
+                    desc: 'Guess whether images are AI-generated or real photographs',
+                    icon: 'brain',
+                    color: 'from-purple-500 to-pink-500',
+                    images: [
+                        { src: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800', isAI: false, label: 'Real Photo' },
+                        { src: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800', isAI: true, label: 'AI Generated' },
+                        { src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800', isAI: false, label: 'Real Photo' },
+                        { src: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800', isAI: true, label: 'AI Generated' }
+                    ]
+                },
+                'spot-diff': {
+                    title: 'Spot the Difference',
+                    desc: 'Find 5 differences between two similar images',
+                    icon: 'eye',
+                    color: 'from-blue-500 to-cyan-500',
+                    differences: ['Background color', 'Object position', 'Lighting', 'Shadow', 'Texture']
+                }
+            };
 
-            return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">Games & Challenges</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Learn visual forensics through fun interactive games.</p>
-                    </div>
+            const handleGameAnswer = (isAI) => {
+                const currentImage = games['ai-or-real'].images[gameState.currentImage || 0];
+                if (isAI === currentImage.isAI) {
+                    setScore(s => s + 100);
+                    alert('Correct! +100 points 🎉');
+                } else {
+                    alert(`Wrong! This was ${currentImage.isAI ? 'AI Generated' : 'Real Photo'}`);
+                }
+                
+                const next = (gameState.currentImage || 0) + 1;
+                if (next >= games['ai-or-real'].images.length) {
+                    alert(`Game Over! Final Score: ${score + 100}`);
+                    setActiveGame(null);
+                    setGameState({});
+                } else {
+                    setGameState({ ...gameState, currentImage: next });
+                }
+            };
 
-                    {!activeGame ? (
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {games.map(game => (
-                                <Card key={game.id} onClick={() => setActiveGame(game.id)} className="p-8 hover:shadow-xl transition-all cursor-pointer group">
-                                    <div className={`inline-flex p-4 rounded-2xl bg-gradient-to-br ${game.color} mb-4`}>
-                                        <Icon name={game.icon} size={32} className="text-white" />
+            if (!activeGame) {
+                return (
+                    <div className="max-w-7xl mx-auto px-4 py-12">
+                        <div className="mb-8">
+                            <h1 className="text-4xl font-poppins font-bold mb-2">Games & Challenges</h1>
+                            <p className="text-gray-600 dark:text-gray-400">Learn visual forensics through interactive games</p>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-8">
+                            {Object.entries(games).map(([key, game]) => (
+                                <Card key={key} className="p-8" onClick={() => { setActiveGame(key); setGameState({ currentImage: 0 }); }}>
+                                    <div className={`w-20 h-20 bg-gradient-to-br ${game.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg`}>
+                                        <Icon name={game.icon} size={40} className="text-white" />
                                     </div>
-                                    <h3 className="text-xl font-poppins font-semibold mb-2">{game.title}</h3>
-                                    <p className="text-gray-600 dark:text-gray-400 mb-4">{game.desc}</p>
-                                    <Button variant="outline" className="w-full">Play Now</Button>
+                                    <h3 className="font-poppins font-bold text-2xl mb-3">{game.title}</h3>
+                                    <p className="text-gray-600 dark:text-gray-400 mb-6">{game.desc}</p>
+                                    <Button variant="outline" className="w-full" size="lg">Play Now</Button>
                                 </Card>
                             ))}
                         </div>
-                    ) : (
-                        <Card className="p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-poppins font-bold">{games.find(g => g.id === activeGame).title}</h2>
-                                <div className="flex items-center gap-4">
-                                    <Badge color="primary">Score: {score}</Badge>
-                                    <Button variant="outline" size="sm" onClick={() => setActiveGame(null)}>Exit Game</Button>
+                    </div>
+                );
+            }
+
+            const game = games[activeGame];
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 py-12">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                        <div>
+                            <h1 className="text-4xl font-poppins font-bold mb-2">{game.title}</h1>
+                            <p className="text-gray-600 dark:text-gray-400">{game.desc}</p>
+                        </div>
+                        <div className="flex gap-4">
+                            <Badge color="primary" className="text-lg px-4 py-2">Score: {score}</Badge>
+                            <Button variant="outline" onClick={() => { setActiveGame(null); setGameState({}); }}>Exit Game</Button>
+                        </div>
+                    </div>
+
+                    {activeGame === 'ai-or-real' && (
+                        <Card className="p-8" hover={false}>
+                            {gameState.currentImage < game.images.length ? (
+                                <>
+                                    <img src={game.images[gameState.currentImage].src} alt="Guess" className="w-full max-w-3xl mx-auto rounded-2xl mb-8 shadow-xl" />
+                                    <div className="flex justify-center gap-6">
+                                        <Button size="lg" onClick={() => handleGameAnswer(true)} className="w-56" variant="outline">
+                                            AI Generated
+                                        </Button>
+                                        <Button size="lg" onClick={() => handleGameAnswer(false)} className="w-56 gradient-bg">
+                                            Real Photo
+                                        </Button>
+                                    </div>
+                                    <p className="text-center mt-6 text-gray-500 font-medium">Image {gameState.currentImage + 1} of {game.images.length}</p>
+                                </>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <div className="w-24 h-24 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <Icon name="trophy" size={48} className="text-white" />
+                                    </div>
+                                    <h2 className="text-3xl font-poppins font-bold mb-4">Game Complete!</h2>
+                                    <p className="text-2xl mb-8">Final Score: <span className="gradient-text font-bold">{score}</span></p>
+                                    <Button onClick={() => { setActiveGame(null); setGameState({ currentImage: 0 }); setScore(0); }} size="lg">
+                                        Play Again
+                                    </Button>
                                 </div>
+                            )}
+                        </Card>
+                    )}
+
+                    {activeGame === 'spot-diff' && (
+                        <Card className="p-8" hover={false}>
+                            <div className="grid md:grid-cols-2 gap-6 mb-8">
+                                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800" alt="Original" className="rounded-2xl shadow-lg" />
+                                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800" alt="Modified" className="rounded-2xl shadow-lg" />
                             </div>
-                            
-                            <div className="aspect-video bg-gray-100 dark:bg-gray-900 rounded-xl flex items-center justify-center">
-                                <div className="text-center">
-                                    <Icon name={games.find(g => g.id === activeGame).icon} size={64} className="mx-auto mb-4 text-gray-400" />
-                                    <p className="text-lg font-medium mb-4">Game Loading...</p>
-                                    <Button onClick={() => setScore(s => s + Math.floor(Math.random() * 100))}>Complete Challenge (+Points)</Button>
+                            <div className="text-center">
+                                <p className="text-lg mb-6 font-medium">Find these differences:</p>
+                                <div className="flex flex-wrap justify-center gap-3 mb-8">
+                                    {game.differences.map((d, i) => (
+                                        <Badge key={i} color="warning" className="text-sm px-4 py-2">{d}</Badge>
+                                    ))}
                                 </div>
+                                <Button onClick={() => setScore(s => s + 50)} size="lg">Found All! (+50 pts)</Button>
                             </div>
                         </Card>
                     )}
@@ -1144,156 +959,345 @@
             );
         };
 
-        const HistoryPage = () => {
-            const items = [
-                { id: 1, title: 'Social Media Image Check', type: 'Detection', score: 87, date: 'Sep 7, 2026', status: 'completed' },
-                { id: 2, title: 'Product Ad Review', type: 'Comparison', score: 21, date: 'Sep 6, 2026', status: 'completed' },
-                { id: 3, title: 'Profile Photo Analysis', type: 'Analysis', score: 94, date: 'Sep 5, 2026', status: 'completed' },
-            ];
+        // REVIEWS PAGE
+        const ReviewsPage = () => {
+            const { reviews, submitReview } = useContext(AppContext);
+            const [formData, setFormData] = useState({ name: '', email: '', rating: 5, comment: '' });
+            const [submitted, setSubmitted] = useState(false);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                submitReview(formData);
+                setSubmitted(true);
+                setFormData({ name: '', email: '', rating: 5, comment: '' });
+                setTimeout(() => setSubmitted(false), 3000);
+            };
 
             return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">Investigation History</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Review your past visual investigations.</p>
+                <div className="max-w-7xl mx-auto px-4 py-12">
+                    <div className="mb-12 text-center">
+                        <h1 className="text-4xl font-poppins font-bold mb-4">Reviews & Testimonials</h1>
+                        <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">See what our users say about TruthLens AI</p>
                     </div>
 
-                    <Card className="overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50 dark:bg-black/20 border-b border-gray-200 dark:border-gray-800">
-                                    <tr>
-                                        <th className="text-left p-4 font-medium text-gray-500">Investigation</th>
-                                        <th className="text-left p-4 font-medium text-gray-500">Type</th>
-                                        <th className="text-left p-4 font-medium text-gray-500">Score</th>
-                                        <th className="text-left p-4 font-medium text-gray-500">Date</th>
-                                        <th className="text-left p-4 font-medium text-gray-500">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                    {items.map(item => (
-                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-black/20">
-                                            <td className="p-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center"><Icon name="image" size={16} className="text-gray-400" /></div>
-                                                    <span className="font-medium">{item.title}</span>
+                    <div className="grid md:grid-cols-2 gap-8 mb-12">
+                        <Card className="p-8" hover={false}>
+                            <h2 className="text-2xl font-poppins font-bold mb-6">Share Your Experience</h2>
+                            {submitted ? (
+                                <div className="text-center py-8">
+                                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Icon name="check" size={32} className="text-green-500" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-green-600 mb-2">Thank You!</h3>
+                                    <p className="text-gray-600">Your review has been submitted successfully.</p>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <Input label="Name" placeholder="Your name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                                    <Input label="Email" type="email" placeholder="your@email.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+                                    <div>
+                                        <label className="text-sm font-semibold mb-2 block">Rating</label>
+                                        <div className="flex gap-2">
+                                            {[1,2,3,4,5].map(star => (
+                                                <button key={star} type="button" onClick={() => setFormData({...formData, rating: star})} className="text-3xl">
+                                                    <Icon name="star" size={32} className={star <= formData.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-semibold mb-2 block">Comment</label>
+                                        <textarea placeholder="Share your experience..." required rows="4"
+                                            value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})}
+                                            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 focus:outline-none focus:border-primary"
+                                        />
+                                    </div>
+                                    <Button type="submit" className="w-full" size="lg">Submit Review</Button>
+                                </form>
+                            )}
+                        </Card>
+
+                        <div className="space-y-4">
+                            {reviews.length === 0 ? (
+                                <Card className="p-8 text-center" hover={false}>
+                                    <p className="text-gray-500">No reviews yet. Be the first to share your experience!</p>
+                                </Card>
+                            ) : (
+                                reviews.map(review => (
+                                    <Card key={review.id} className="p-6" hover={false}>
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-12 h-12 gradient-bg rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                                {review.name.charAt(0)}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="font-bold">{review.name}</h4>
+                                                    <span className="text-sm text-gray-500">{review.date}</span>
                                                 </div>
-                                            </td>
-                                            <td className="p-4"><Badge color={item.type === 'Detection' ? 'secondary' : 'primary'}>{item.type}</Badge></td>
-                                            <td className="p-4 font-bold">{item.score}%</td>
-                                            <td className="p-4 text-gray-500">{item.date}</td>
-                                            <td className="p-4"><Badge color="success">Completed</Badge></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                <div className="flex mb-2">
+                                                    {[...Array(review.rating)].map((_, i) => (
+                                                        <Icon key={i} name="star" size={16} className="text-yellow-400 fill-yellow-400" />
+                                                    ))}
+                                                </div>
+                                                <p className="text-gray-600 dark:text-gray-400">{review.comment}</p>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))
+                            )}
                         </div>
-                    </Card>
+                    </div>
                 </div>
             );
         };
 
-        const OwnerDashboard = () => {
-            const { analytics, setAnalytics, users, lensConfig, setLensConfig } = useContext(AppContext);
-            const [activeTab, setActiveTab] = useState('overview');
+        // ABOUT PAGE
+        const AboutPage = () => (
+            <div className="max-w-7xl mx-auto px-4 py-12">
+                <div className="mb-12 text-center">
+                    <h1 className="text-4xl font-poppins font-bold mb-4">About TruthLens AI</h1>
+                    <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">Meet the team behind the platform</p>
+                </div>
 
+                <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <Card className="p-8 text-center" hover={false}>
+                        <div className="w-32 h-32 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6">
+                            <span className="text-5xl font-bold text-white">EZ</span>
+                        </div>
+                        <h3 className="text-2xl font-poppins font-bold mb-2">Eman Zahid</h3>
+                        <p className="text-primary font-medium mb-4">Lead Designer & Developer</p>
+                        <div className="space-y-2 text-gray-600 dark:text-gray-400">
+                            <p>• UI/UX Design</p>
+                            <p>• Client Dashboard Development</p>
+                            <p>• Interactive Games</p>
+                            <p>• Frontend Architecture</p>
+                        </div>
+                        <div className="flex justify-center gap-4 mt-6">
+                            <a href="#" className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors">
+                                <Icon name="linkedin" size={20} />
+                            </a>
+                            <a href="#" className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors">
+                                <Icon name="github" size={20} />
+                            </a>
+                        </div>
+                    </Card>
+
+                    <Card className="p-8 text-center" hover={false}>
+                        <div className="w-32 h-32 gradient-bg rounded-full flex items-center justify-center mx-auto mb-6">
+                            <span className="text-5xl font-bold text-white">ZZ</span>
+                        </div>
+                        <h3 className="text-2xl font-poppins font-bold mb-2">Zunaira Zahid</h3>
+                        <p className="text-primary font-medium mb-4">AI & Backend Developer</p>
+                        <div className="space-y-2 text-gray-600 dark:text-gray-400">
+                            <p>• Lens AI Chatbot</p>
+                            <p>• Admin Dashboard</p>
+                            <p>• AI Integration</p>
+                            <p>• Backend Systems</p>
+                        </div>
+                        <div className="flex justify-center gap-4 mt-6">
+                            <a href="#" className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors">
+                                <Icon name="linkedin" size={20} />
+                            </a>
+                            <a href="#" className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors">
+                                <Icon name="github" size={20} />
+                            </a>
+                        </div>
+                    </Card>
+                </div>
+
+                <Card className="mt-12 p-8 max-w-4xl mx-auto" hover={false}>
+                    <h3 className="text-2xl font-poppins font-bold mb-4 text-center">Our Mission</h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-center max-w-2xl mx-auto">
+                        TruthLens AI is dedicated to combating misinformation and deepfakes through advanced AI-powered image forensics. 
+                        We believe in making digital verification accessible to everyone.
+                    </p>
+                </Card>
+            </div>
+        );
+
+        // OWNER DASHBOARD
+        const OwnerDashboard = () => {
+            const { complaints } = useContext(AppContext);
+            
             return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+                <div className="max-w-7xl mx-auto px-4 py-12">
                     <div className="mb-8">
-                        <h1 className="text-3xl font-poppins font-bold mb-2">Owner Dashboard</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Manage your TruthLens AI platform.</p>
+                        <h1 className="text-4xl font-poppins font-bold mb-2">Admin Dashboard</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Manage platform and user complaints</p>
                     </div>
 
-                    <div className="grid md:grid-cols-4 gap-4 mb-8">
+                    <div className="grid md:grid-cols-4 gap-6 mb-8">
                         {[
-                            { label: 'Total Users', value: users.length + 1, icon: 'users', color: 'from-blue-500 to-cyan-500' },
-                            { label: 'Investigations', value: analytics.totalInvestigations, icon: 'search', color: 'from-primary to-secondary' },
-                            { label: 'AI Detections', value: analytics.aiDetections, icon: 'shield', color: 'from-orange-500 to-red-500' },
-                            { label: 'Active Now', value: analytics.activeUsers, icon: 'activity', color: 'from-green-500 to-emerald-500' }
+                            { label: 'Total Users', value: '1,234', icon: 'users', color: 'from-blue-500 to-cyan-500' },
+                            { label: 'Investigations', value: '5,678', icon: 'search', color: 'from-primary to-secondary' },
+                            { label: 'Pending Complaints', value: complaints.filter(c => c.status === 'pending').length, icon: 'message-square', color: 'from-orange-500 to-red-500' },
+                            { label: 'API Calls', value: '45.6K', icon: 'activity', color: 'from-green-500 to-emerald-500' }
                         ].map((stat, i) => (
-                            <Card key={i} className="p-6">
-                                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${stat.color} mb-3`}>
-                                    <Icon name={stat.icon} size={20} className="text-white" />
+                            <Card key={i} className="p-6" hover={false}>
+                                <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center mb-4`}>
+                                    <Icon name={stat.icon} size={24} className="text-white" />
                                 </div>
-                                <div className="text-3xl font-poppins font-bold gradient-text mb-1">{stat.value}</div>
+                                <div className="text-3xl font-bold gradient-text mb-1">{stat.value}</div>
+                                <div className="text-sm text-gray-500">{stat.label}</div>
+                            </Card>
+                        ))}
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <Card className="p-6" hover={false}>
+                            <h3 className="font-poppins font-bold text-xl mb-4">Quick Actions</h3>
+                            <div className="space-y-3">
+                                <Button variant="outline" className="w-full justify-start" icon="database">Export Data</Button>
+                                <Button variant="outline" className="w-full justify-start" icon="mail">Send Announcement</Button>
+                                <Button variant="outline" className="w-full justify-start" icon="shield">Moderation Tools</Button>
+                            </div>
+                        </Card>
+                        <Card className="p-6" hover={false}>
+                            <h3 className="font-poppins font-bold text-xl mb-4">System Status</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                    <span className="font-medium">AI Services</span>
+                                    <Badge color="success">Operational</Badge>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                    <span className="font-medium">Database</span>
+                                    <Badge color="success">Operational</Badge>
+                                </div>
+                                <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                    <span className="font-medium">API</span>
+                                    <Badge color="success">Operational</Badge>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            );
+        };
+
+        // COMPLAINTS PAGE
+        const ComplaintsPage = () => {
+            const { complaints, replyToComplaint } = useContext(AppContext);
+            const [replyingTo, setReplyingTo] = useState(null);
+            const [replyText, setReplyText] = useState('');
+
+            const handleReply = (id) => {
+                replyToComplaint(id, replyText);
+                setReplyingTo(null);
+                setReplyText('');
+            };
+
+            return (
+                <div className="max-w-7xl mx-auto px-4 py-12">
+                    <div className="mb-8">
+                        <h1 className="text-4xl font-poppins font-bold mb-2">User Complaints</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Manage and respond to user complaints</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        {complaints.length === 0 ? (
+                            <Card className="p-12 text-center" hover={false}>
+                                <Icon name="inbox" size={64} className="mx-auto mb-4 text-gray-400" />
+                                <h3 className="text-xl font-bold mb-2">No Complaints Yet</h3>
+                                <p className="text-gray-500">All systems running smoothly!</p>
+                            </Card>
+                        ) : (
+                            complaints.map(complaint => (
+                                <Card key={complaint.id} className="p-6" hover={false}>
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div>
+                                            <h4 className="font-bold text-lg mb-1">{complaint.subject}</h4>
+                                            <p className="text-sm text-gray-500">From: {complaint.name} • {complaint.date}</p>
+                                        </div>
+                                        <Badge color={complaint.status === 'replied' ? 'success' : 'warning'}>
+                                            {complaint.status === 'replied' ? 'Replied' : 'Pending'}
+                                        </Badge>
+                                    </div>
+                                    <p className="text-gray-600 dark:text-gray-400 mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">{complaint.message}</p>
+                                    
+                                    {complaint.reply && (
+                                        <div className="mb-4 p-4 bg-primary/10 rounded-lg border-l-4 border-primary">
+                                            <p className="font-semibold mb-1">Your Reply:</p>
+                                            <p className="text-gray-700 dark:text-gray-300">{complaint.reply}</p>
+                                        </div>
+                                    )}
+
+                                    {!replyingTo && complaint.status === 'pending' && (
+                                        <Button onClick={() => setReplyingTo(complaint.id)} size="sm" icon="reply">Reply</Button>
+                                    )}
+
+                                    {replyingTo === complaint.id && (
+                                        <div className="mt-4">
+                                            <textarea placeholder="Type your reply..." rows="3"
+                                                value={replyText} onChange={e => setReplyText(e.target.value)}
+                                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 mb-3"
+                                            />
+                                            <div className="flex gap-3">
+                                                <Button onClick={() => handleReply(complaint.id)} size="sm">Send Reply</Button>
+                                                <Button variant="outline" onClick={() => { setReplyingTo(null); setReplyText(''); }} size="sm">Cancel</Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
+                            ))
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // CLIENT DASHBOARD
+        const ClientDashboard = () => {
+            const { currentUser } = useContext(AppContext);
+            return (
+                <div className="max-w-7xl mx-auto px-4 py-12">
+                    <div className="mb-8">
+                        <h1 className="text-4xl font-poppins font-bold mb-2">Welcome back, {currentUser?.name}!</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Here's your investigation overview</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-4 gap-6 mb-8">
+                        {[
+                            { label: 'Investigations', value: '47', icon: 'search', color: 'from-blue-500 to-cyan-500' },
+                            { label: 'Images Compared', value: '128', icon: 'git-compare', color: 'from-primary to-secondary' },
+                            { label: 'AI Detections', value: '34', icon: 'shield', color: 'from-orange-500 to-red-500' },
+                            { label: 'Reports', value: '21', icon: 'file-text', color: 'from-green-500 to-emerald-500' }
+                        ].map((stat, i) => (
+                            <Card key={i} className="p-6" hover={false}>
+                                <div className={`w-12 h-12 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center mb-4`}>
+                                    <Icon name={stat.icon} size={24} className="text-white" />
+                                </div>
+                                <div className="text-3xl font-bold gradient-text mb-1">{stat.value}</div>
                                 <div className="text-sm text-gray-500">{stat.label}</div>
                             </Card>
                         ))}
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-6">
-                        <Card className="p-6">
-                            <h3 className="font-poppins font-semibold mb-4 flex items-center gap-2">
-                                <Icon name="sparkles" size={18} className="text-primary" /> Lens Configuration
-                            </h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium mb-2 block">Personality</label>
-                                    <select 
-                                        value={lensConfig.personality}
-                                        onChange={(e) => setLensConfig({...lensConfig, personality: e.target.value})}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent"
-                                    >
-                                        <option value="professional">Professional</option>
-                                        <option value="friendly">Friendly</option>
-                                        <option value="technical">Technical</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium mb-2 block">Response Style</label>
-                                    <select 
-                                        value={lensConfig.responseStyle}
-                                        onChange={(e) => setLensConfig({...lensConfig, responseStyle: e.target.value})}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent"
-                                    >
-                                        <option value="concise">Concise</option>
-                                        <option value="detailed">Detailed</option>
-                                        <option value="educational">Educational</option>
-                                    </select>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm">Auto-suggestions</span>
-                                    <button 
-                                        onClick={() => setLensConfig({...lensConfig, autoSuggest: !lensConfig.autoSuggest})}
-                                        className={`w-12 h-6 rounded-full transition-colors ${lensConfig.autoSuggest ? 'bg-primary' : 'bg-gray-300'}`}
-                                    >
-                                        <div className={`w-5 h-5 rounded-full bg-white transform transition-transform ${lensConfig.autoSuggest ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
-                                    </button>
-                                </div>
-                                <Button className="w-full" onClick={() => alert('Lens configuration updated!')}>Save Changes</Button>
+                        <Card className="p-6" hover={false}>
+                            <h3 className="font-poppins font-bold text-lg mb-4">Quick Actions</h3>
+                            <div className="space-y-3">
+                                <Button variant="outline" className="w-full justify-start" icon="git-compare">Compare Images</Button>
+                                <Button variant="outline" className="w-full justify-start" icon="shield">AI Detection</Button>
+                                <Button variant="outline" className="w-full justify-start" icon="gamepad-2">Play Games</Button>
                             </div>
                         </Card>
-
-                        <Card className="p-6">
-                            <h3 className="font-poppins font-semibold mb-4 flex items-center gap-2">
-                                <Icon name="users" size={18} className="text-primary" /> Recent Users
-                            </h3>
+                        <Card className="p-6 md:col-span-2" hover={false}>
+                            <h3 className="font-poppins font-bold text-lg mb-4">Recent Activity</h3>
                             <div className="space-y-3">
-                                {users.slice(-5).map(user => (
-                                    <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-black/20">
-                                        <div className="w-10 h-10 rounded-full gradient-bg flex items-center justify-center text-white font-bold">
-                                            {user.name.charAt(0)}
+                                {[1,2,3].map(i => (
+                                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 gradient-bg rounded-lg flex items-center justify-center">
+                                                <Icon name="image" size={20} className="text-white" />
+                                            </div>
+                                            <div>
+                                                <div className="font-medium">Investigation #{i}</div>
+                                                <div className="text-sm text-gray-500">Sep {i}, 2026</div>
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <div className="font-medium text-sm">{user.name}</div>
-                                            <div className="text-xs text-gray-500">{user.email}</div>
-                                        </div>
-                                        <Badge color="success">Active</Badge>
+                                        <Badge color="success">Completed</Badge>
                                     </div>
                                 ))}
-                                {users.length === 0 && <p className="text-sm text-gray-500 text-center">No users yet</p>}
-                            </div>
-                        </Card>
-
-                        <Card className="p-6">
-                            <h3 className="font-poppins font-semibold mb-4 flex items-center gap-2">
-                                <Icon name="settings" size={18} className="text-primary" /> Platform Settings
-                            </h3>
-                            <div className="space-y-3">
-                                <Button variant="outline" className="w-full justify-start" icon="database">Export Data</Button>
-                                <Button variant="outline" className="w-full justify-start" icon="mail">Send Announcement</Button>
-                                <Button variant="outline" className="w-full justify-start" icon="shield">Moderation Tools</Button>
-                                <Button variant="outline" className="w-full justify-start" icon="bar-chart">View Analytics</Button>
                             </div>
                         </Card>
                     </div>
@@ -1301,11 +1305,10 @@
             );
         };
 
-        // --- MAIN APP ---
+        // MAIN APP
         const App = () => {
-            const { currentPage } = useContext(AppContext);
+            const { currentPage, setCurrentPage } = useContext(AppContext);
             
-            useEffect(() => { lucide.createIcons(); });
             useEffect(() => { lucide.createIcons(); }, [currentPage]);
 
             const renderPage = () => {
@@ -1314,43 +1317,27 @@
                     case 'client-dashboard': return <ClientDashboard />;
                     case 'compare': return <ComparePage />;
                     case 'detect': return <DetectPage />;
-                    case 'analyze': return <AnalyzePage />;
                     case 'games': return <GamesPage />;
-                    case 'history': return <HistoryPage />;
+                    case 'reviews': return <ReviewsPage />;
+                    case 'about': return <AboutPage />;
                     case 'owner-dashboard': return <OwnerDashboard />;
+                    case 'complaints': return <ComplaintsPage />;
                     default: return <LandingPage />;
                 }
             };
 
             return (
-                <div className="min-h-screen flex flex-col">
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
                     <Navbar />
-                    <main className="flex-1">{renderPage()}</main>
-                    <footer className="border-t border-gray-200 dark:border-gray-800 py-8 mt-12">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <Logo size="sm" />
-                            <div className="text-sm text-gray-500">© 2026 TruthLens AI. Evidence before assumptions.</div>
-                            <div className="flex gap-6 text-sm text-gray-500">
-                                <a href="#" className="hover:text-primary">Privacy</a>
-                                <a href="#" className="hover:text-primary">Terms</a>
-                                <a href="#" className="hover:text-primary">Responsible AI</a>
-                            </div>
-                        </div>
-                    </footer>
+                    <main>{renderPage()}</main>
                     <LensChat />
-                    <LensFloatingButton />
+                    <LensButton />
                     <AuthModal />
                 </div>
             );
         };
 
-        const Root = () => (
-            <AppProvider>
-                <App />
-            </AppProvider>
-        );
-
-        ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<AppProvider><App /></AppProvider>);
     </script>
 </body>
 </html>
